@@ -1,0 +1,14 @@
+name: MyLittleInvertsSYCA
+title: MyLittleInvertsSYCA
+username:
+account: t-lama
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 5287100
+bundleId: 5342997
+url: https://t-lama.shinyapps.io/MyLittleInvertsSYCA/
+when: 1638920399.27204
+lastSyncTime: 1638920399.27204
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: AppReadme.html|AppReadme.Rmd|server_dpid.R|SYCA_inverts_map.html|ui_old.R
