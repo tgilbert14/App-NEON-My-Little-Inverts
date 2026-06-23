@@ -1,207 +1,259 @@
-#---user interface--------------------------------------------------  
-ui <- dashboardPage(#skin = 'red',
-                    header=dashboardHeader(title='My Inverts- Sycamore Creek (NEON)'),
-                    
-                    dashboardSidebar(
-                      
-                      #selectInput("ui.domain",  label="Select Domain",choices = unique(domain.sites$Domain),selectize=TRUE),
-                      #selectInput("SelectSite", label='Select Site',choices=''),
-                                  #"Please select Field Site:",
-                                  #choices = c("SYCA", "ARIK","BARC","BIGC","BLDE","BLUE","BLWA","CARI","COMO","CRAM","CUPE","FLNT","GUIL","HOPB","KING","LECO","LEWI","LIRO","MART","MAYF","MCDI","MCRA","OKSR","POSE","PRIN","PRLA","PRPO","REDB","SUGG","TECR","TOMB","TOOK","WALK","WLOU"), selected = F, multiple = T),
-                      selectInput("ui.domain", label="Select Domain",choices = unique(domain.sites$Domain),selectize=TRUE, selected = F),
-                      
-                      selectInput("SelectSite", label='Select Site',choices = unique(domain.sites$Site),selectize=TRUE),
-                      
-                      dateRangeInput('dateRange',label='Select Date Range (YYYY-MM)',format = "yyyy-mm",start=Sys.Date()-(930),end=Sys.Date()-730, startview = "year"),
-                      
+# ===========================================================================
+# NEON My Little Inverts — ui.R
+# v2 flow: no sidebar. A national picker MAP is the primary site selector (34
+# aquatic sites, sized by survey effort, coloured by aquatic type lake/river/
+# stream). A .select-panel beside the map is the by-name fallback. A slim
+# .top-bar carries the brand + theme toggle + How-it-works. The loaded view's
+# hero band carries "change site" (re-shows the picker) + a "Report" download.
+# No demo CTA — users pick a real site. Bundles load whole (no date window).
+# ===========================================================================
+ui <- bslib::page_fillable(
+  theme = app_theme, title = NULL,
+  window_title = "NEON My Little Inverts", fillable = FALSE,
+  tags$head(
+    tags$link(rel = "preconnect", href = "https://fonts.googleapis.com"),
+    tags$link(rel = "preconnect", href = "https://fonts.gstatic.com", crossorigin = NA),
+    tags$link(rel = "stylesheet", href = "https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700;800&display=swap"),
+    tags$link(rel = "stylesheet", href = "https://cdn.jsdelivr.net/npm/sweetalert2@11.10.0/dist/sweetalert2.min.css"),
+    tags$script(src = "https://cdn.jsdelivr.net/npm/sweetalert2@11.10.0/dist/sweetalert2.all.min.js"),
+    tags$script(src = "https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"),
+    tags$script(src = "https://cdn.jsdelivr.net/npm/html-to-image@1.11.13/dist/html-to-image.js"),
+    tags$link(rel = "stylesheet", href = asset_url("styles.css")),
+    tags$link(rel = "stylesheet", href = asset_url("inverts.css")),
+    tags$script(src = asset_url("app.js")),
+    tags$script(src = asset_url("pincards.js"))
+  ),
+  useShinyjs(),
 
-                      
-                      selectInput("SelectData", label ="Please select Protocol:",
-                                  choices = c(''), selectize=TRUE),
+  # ---- persistent top bar (theme + help) ---------------------------------
+  div(class = "top-bar",
+    div(class = "top-bar-brand",
+      tags$span(class = "tb-mark", "\U0001FAB2"),
+      tags$span(class = "tb-title", "My Little Inverts")),
+    div(class = "top-bar-actions",
+      actionButton("help", tagList(bs_icon("question-circle"), " How it works"),
+                   class = "btn-outline-dark btn-sm tb-help"),
+      div(class = "tb-theme",
+        tags$span(class = "tb-theme-lab", bs_icon("circle-half")),
+        input_dark_mode(id = "colorMode", mode = "light")))
+  ),
 
-                      
-                      #dateRangeInput('dateRange',label='Select Date Range',start=Sys.Date()-21,end=Sys.Date()),
-                      #actionButton('run','Run'),
-                      
-                      sidebarMenu(
-                        menuItem('Information',tabName = 'I',icon=icon('info')),
-                        #menuItem('Data View',tabName = 'D',icon=icon('laptop-code')),
-                        #menuItem('QC Report',tabName = 'C',icon=icon('newspaper')),
-                        menuItem('Invert Captures',tabName = 'dtable',icon=icon('table')),
-                        menuItem('By Location',tabName = 'emap',icon=icon('bug')),
-                        submitButton('Process Selections',width = '90%'),
-                        menuItem('Readme',tabName='readme',icon=icon('info-circle'))
-                      )
-                    ),
-                    
-                    dashboardBody(" Macroinvertebrate Collection Data from National Ecological Observatory Network (NEON)",
-                                  tabItems( # contains all tabs -  
-                                    
-                                    #info - protocol
-                                    tabItem(tabName = 'I',
-                                            fluidRow(
-                                              shinydashboard::box(title='Protocol Name',
-                                                  #footer = 'Data from selected protocol',
-                                                  status = 'info',
-                                                  #collapsible = T,
-                                                  #collapsed = F,
-                                                  solidHeader = F,
-                                                  height='90',
-                                                  width='6',
-                                                  column(12,withSpinner(textOutput('the_info'),
-                                                                        image = 'https://media.giphy.com/media/yGhIqFuOx84KY/source.gif',
-                                                                        image.height = '600px', image.width = '1000px', proxy.height = '1000px'),
-                                                         #style='height:50px;overflow-y:scroll'
-                                                         )
-                                              ),
-                                              
-                                              shinydashboard::box(title='Protocol Dpid',
-                                                  #footer = 'Data from selected protocol',
-                                                  status = 'info',
-                                                  #collapsible = T,
-                                                  #collapsed = F,
-                                                  solidHeader = F,
-                                                  height='90',
-                                                  width='6',
-                                                  column(12,withSpinner(textOutput('d_info'),
-                                                                       image = 'https://media.giphy.com/media/yGhIqFuOx84KY/source.gif',
-                                                                       image.height = '600px', image.width = '1000px', proxy.height = '1000px'),
-                                                         #style='height:50px;overflow-y:scroll'
-                                                         )
-                                              ),
-                                              
-                                              shinydashboard::box(title='Description',
-                                                  #footer = 'Data from selected protocol',
-                                                  status = 'info',
-                                                  #collapsible = T,
-                                                  #collapsed = F,
-                                                  solidHeader = F,
-                                                  height='120',
-                                                  width='12',
-                                                  column(12,withSpinner(textOutput('p_info'),
-                                                                        image = 'https://media.giphy.com/media/yGhIqFuOx84KY/source.gif',
-                                                                        image.height = '600px', image.width = '1000px', proxy.height = '1000px'),
-                                                         #style='height:60px;overflow-y:scroll'
-                                                  )
-                                              ),
-                                              
-                                              shinydashboard::box(title='Status',
-                                                  #footer = 'Data from selected protocol',
-                                                  status = 'info',
-                                                  #collapsible = T,
-                                                  #collapsed = F,
-                                                  solidHeader = F,
-                                                  height='90',
-                                                  width='12',
-                                                  column(12,withSpinner(textOutput('st_info'),
-                                                                        image = 'https://media.giphy.com/media/yGhIqFuOx84KY/source.gif',
-                                                                        image.height = '600px', image.width = '1000px', proxy.height = '1000px'),
-                                                         #style='height:25px;overflow-y:scroll'
-                                                  )
-                                              ),
-                                              
-                                              # shinydashboard::box(title='First Date',
-                                              #     #footer = 'Data from selected protocol',
-                                              #     status = 'info',
-                                              #     #collapsible = T,
-                                              #     #collapsed = F,
-                                              #     solidHeader = T,
-                                              #     height='90',
-                                              #     width='4',
-                                              #     column(12,withSpinner(textOutput('f_info'),
-                                              #                           image = 'https://media.giphy.com/media/yGhIqFuOx84KY/source.gif',
-                                              #                           image.height = '600px', image.width = '1000px', proxy.height = '1000px'),
-                                              #            #style='height:25px;overflow-y:scroll'
-                                              #            )
-                                              # ),
-                                              # 
-                                              # shinydashboard::box(title='Last Date',
-                                              #     #footer = 'Data from selected protocol',
-                                              #     status = 'info',
-                                              #     #collapsible = T,
-                                              #     #collapsed = F,
-                                              #     solidHeader = T,
-                                              #     height='90',
-                                              #     width='4',
-                                              #     column(12,withSpinner(tableOutput('l_info'),
-                                              #                           image = 'https://media.giphy.com/media/yGhIqFuOx84KY/source.gif',
-                                              #                           image.height = '600px', image.width = '1000px', proxy.height = '1000px'),
-                                              #            #style='height:25px;overflow-y:scroll'
-                                              #            )
-                                              # ),
-                                              
-                                              shinydashboard::box(title='Science Team',
-                                                  #footer = 'Data from selected protocol',
-                                                  status = 'info',
-                                                  #collapsible = T,
-                                                  #collapsed = F,
-                                                  solidHeader = F,
-                                                  height='90',
-                                                  width='12',
-                                                  column(12,withSpinner(textOutput('sc_info'),
-                                                                        image = 'https://media.giphy.com/media/yGhIqFuOx84KY/source.gif',
-                                                                        image.height = '600px', image.width = '1000px', proxy.height = '1000px'),
-                                                         #style='height:50px;overflow-y:scroll'
-                                                         )
-                                              )
-                                            )
-                                    ),
-                                    
-                                    
-                                              #table
-                                              tabItem(tabName = 'dtable',
-                                                      fluidRow(
-                                                        
-                                                        shinydashboard::box(width = 3, status = 'primary',
-                                                        selectInput("look", label = "Select MacroInvert level",
-                                                                    choices = c('family','genus','scientificName'), selectize=TRUE)),
-                                                        
-                                                        shinydashboard::box(title='Most Captured Inverts',
-                                                            footer = 'Data table for selected protocol',
-                                                            status = 'info',
-                                                            #collapsible = T,
-                                                            #collapsed = F,
-                                                            solidHeader = F,
-                                                            height='650',
-                                                            width='9',
-                                                            column(12,withSpinner(DT::dataTableOutput('table'),
-                                                                                  image = 'https://media.giphy.com/media/yGhIqFuOx84KY/source.gif',
-                                                                                  image.height = '600px', image.width = '1000px', proxy.height = '1000px'),
-                                                                   style='height:500px;overflow-y:scroll')
-                                                        )
-                                                        
-                                                      )
-                                              ),
-                                    
-                                    #map
-                                    tabItem(tabName = 'emap',
-                                            fluidRow(
-                                              
-                                              # shinydashboard::box(width = 3, status = 'primary',
-                                              #                     selectInput("look", label = "Select MacroInvert level",
-                                              #                                 choices = c('family','genus','scientificName'), selectize=TRUE)),
-                                              
-                                              shinydashboard::box(title='Invert Capture by Location',
-                                                                  footer = 'Capture Locations by species between selected dates',
-                                                                  status = 'info',
-                                                                  #collapsible = T,
-                                                                  #collapsed = F,
-                                                                  solidHeader = F,
-                                                                  height='600',
-                                                                  width='12',
-                                                                  column(12,withSpinner(leafletOutput('Elab', width = '100%', height = 1800),
-                                                                                        image = 'https://media.giphy.com/media/yGhIqFuOx84KY/source.gif',
-                                                                                        image.height = '600px', image.width = '1200px', proxy.height = '700px'),
-                                                                         style='height:590px;overflow-y:scroll')
-                                              )
-                                              
-                                            )
-                                    ),
-                                              #readme
-                                              tabItem(tabName='readme',
-                                                      htmlOutput('appreadme')
-                                              )
-                                            )
-                                    )
-                                  )
+  div(id = "loadOverlay", class = "load-overlay", div(class = "load-card",
+    div(class = "load-spin mascot-spin", MASCOT_CRITTER), div(class = "load-title", "Loading site data"),
+    div(id = "loadSite", class = "load-site"), div(class = "load-bar"),
+    div(class = "load-note", "Building the EPT pulse, the taxa board, and the maps."))),
+  if (isTRUE(NO_DATA)) div(class = "synth-banner", bs_icon("exclamation-octagon-fill"),
+    tags$span(HTML("<b>No data bundled yet.</b> Run <code>Rscript scripts/build_inv_data.R</code> to populate <code>data/</code>. The map below shows the network greyed out until then."))),
+  uiOutput("heroStats"),
 
+  # "Open a taxon profile" picker — revealed on site load (shinyjs::show)
+  hidden(div(id = "spPickerWrap", class = "indiv-picker-wrap",
+    div(class = "ipw-row",
+      div(class = "ipw-sel",
+        selectizeInput("spSel", label = tagList(bs_icon("search"), " Open a taxon profile"), choices = NULL,
+                       width = "100%", options = list(placeholder = "Pick a taxon…"))),
+      actionButton("surpriseBtn", tagList(bs_icon("dice-5-fill"), " Surprise me"),
+                   class = "btn-outline-dark ipw-surprise")))),
+
+  div(id = "splash",
+    div(class = "splash-guide",
+      div(class = "sg-bubble", "Pick a site to start!"),
+      div(class = "sg-mascot", MASCOT_CRITTER)),
+    div(class = "splash splash-map",
+    div(class = "app-hero app-hero-splash",
+      h1(class = "app-title", "NEON My Little Inverts", span(class = "title-tag", "unofficial")),
+      p(class = "app-subtitle", "The little animals living on the bottom of a stream, river, or lake, the insect larvae, worms, snails, and crustaceans, tell you a lot about the water above them. NEON collects and identifies them at aquatic sites across the country. This app reads one site at a time: how dense the community is, how many kinds live there, and how big a share are the mayflies, stoneflies, and caddisflies that need clean, well-oxygenated water. Built on the Macroinvertebrate collection (DP1.20120.001).")),
+    p(tags$b("Tap a site on the map"), " (sized by survey effort, coloured by water type) to explore it, or pick one by name in the panel below the map. ", tags$b("34 aquatic sites"), " from desert streams to arctic lakes."),
+    div(class = "picker-map-wrap", leafletOutput("nationalPicker", height = "440px")),
+
+    # ---- relocated select panel (was the sidebar) ----------------------
+    div(class = "select-panel",
+      div(class = "sp-head", bs_icon("sliders"), " Or pick a site by name"),
+      div(class = "sp-row",
+        div(class = "sp-field",
+          selectInput("stateSel", label = tagList(bs_icon("geo-alt-fill"), " State"), choices = NULL, width = "100%")),
+        div(class = "sp-field",
+          selectInput("site", label = tagList(bs_icon("pin-map-fill"), " Site"), choices = NULL, width = "100%"))),
+      uiOutput("siteBio"),
+      actionButton("loadBtn", tagList(bs_icon("water"), " Explore this site"),
+                   class = "btn-primary btn-lg load-btn sp-load", onclick = "smtLoadStart()")),
+
+    tags$details(class = "site-browse",
+      tags$summary(class = "site-browse-summary",
+        tags$span(class = "sbs-label", bs_icon("list-ul"), " Browse all 34 sites as a list"),
+        tags$span(class = "sbs-chevron", bs_icon("chevron-down"))),
+      div(class = "site-browse-body", uiOutput("siteCards"))))),
+
+  div(id = "mainTabsWrap", class = "main-tabs-wrap",
+    div(class = "hero-caveat", bs_icon("droplet-half"),
+      tags$span(HTML("Density is a <b>within-site standardized index</b> (individuals per m<sup>2</sup>), not an absolute population. These are <b>descriptive</b> bioassessment metrics, never a pass/fail score or an aquatic-life-use call (no calibrated reference condition exists for NEON sites)."))),
+    navset_card_tab(id = "tabs",
+      nav_panel(title = tagList(bs_icon("compass"), " Overview"), value = "overview",
+        div(class = "home-nav",
+          actionButton("goPulse", tagList(bs_icon("activity"), div("The EPT Pulse"), tags$small("clean-water bugs over time")), class = "home-btn home-btn-star"),
+          actionButton("goBoard", tagList(bs_icon("bug-fill"), div("Taxa Board"), tags$small("every taxon, pinnable")), class = "home-btn"),
+          actionButton("goDiversity", tagList(bs_icon("bar-chart-steps"), div("Diversity"), tags$small("richness + composition")), class = "home-btn"),
+          actionButton("goCross", tagList(bs_icon("globe-americas"), div("Across the country"), tags$small("34 sites by gradient")), class = "home-btn"),
+          actionButton("goSearch", tagList(bs_icon("search"), div("Search the network"), tags$small("find a taxon or threshold")), class = "home-btn"),
+          actionButton("goMap", tagList(bs_icon("map-fill"), div("Map"), tags$small("the sampled reach")), class = "home-btn")),
+        card(full_screen = TRUE,
+          card_head("bar-chart-steps", "Most-abundant taxa (by density)",
+            info_pop("Density board",
+              p("Each taxon's mean ", tags$b("density"), " (individuals per m", tags$sup("2"), "), coloured ", tags$span(style="color:#0e8f9c;font-weight:700","EPT"), " (mayflies / stoneflies / caddisflies, the clean-water groups) vs ", tags$span(style="color:#94a7ad;font-weight:700","other"), "."),
+              p(class="pop-caveat", bs_icon("exclamation-triangle"), " Density is a ", tags$b("within-site standardized index, not a population"), ". Compare within a site, within a habitat and sampler type. The share of samples a taxon shows up on (the Taxa Board's other axis) is the steadier read."))),
+          uiOutput("overviewInsight"),
+          spin(plotlyOutput("topBar", height = "440px"))),
+        card(card_head("stars", "The story so far", info_pop("Story", p("Written from this site's data."))),
+          uiOutput("siteInsights")),
+        div(class = "disclaimer-band", bs_icon("clipboard-data"),
+          tags$span(HTML("These are <b>descriptive bioassessment metrics, not a regulatory determination</b>. NEON sites have no calibrated reference condition or state biotic index, so the app shows within-site trends and cross-site direction only, never a pass/fail score or an aquatic-life-use call. (Method: EPA RBP, Barbour et al. 1999.)")))),
+      nav_panel(title = tagList(bs_icon("activity"), " The EPT Pulse"), value = "pulse",
+        div(class = "tab-head", div(class = "tab-head-text",
+          h4("The EPT pulse"),
+          p("The clean-water signal over time: each bout's EPT share and density, with habitat and sampler type carried so you can read what is biology and what is method. Bouts flagged for low counts or mixed methods are greyed."),
+          span(class = "scope-chip scope-site", bs_icon("geo-alt-fill"), " Showing this site only"))),
+        card(full_screen = TRUE,
+          card_head("activity", "EPT share and density, bout by bout",
+            info_pop("Reading the pulse",
+              p("The line tracks each collection bout's ", tags$b("%EPT"), " (share of individuals that are mayflies, stoneflies, or caddisflies, the pollution-sensitive groups). The bars are ", tags$b("density"), " (individuals per m", tags$sup("2"), "). Marker shape = ", tags$b("habitat"), "; colour = ", tags$b("sampler type"), "."),
+              p("Greyed bouts are flagged (low count, or a mix of habitats / samplers) so they read as less comparable, not wrong. Comparisons are valid ", tags$b("within a habitat and sampler type"), "; a change can reflect which habitat was sampled, not the water."))),
+          div(class = "sizelab-toolbar",
+            downloadButton("pulseCsv", "Download the bout metrics (CSV)", class = "smt-clear-btn")),
+          uiOutput("pulseInsight"),
+          spin(plotlyOutput("pulsePlot", height = "440px"))),
+        div(class = "confound-note", bs_icon("info-circle-fill"),
+          tags$span(HTML("Lakes are naturally EPT-poor (low EPT here is normal, <b>not</b> impairment). Across-site differences reflect habitat and sampling method as much as biology."))),
+        layout_columns(col_widths = c(7, 5),
+          card(full_screen = TRUE,
+            card_head("graph-up", "Density over time",
+              info_pop("Density trend", p("Each bout's mean density (individuals per m", tags$sup("2"), "). Heavy-tailed across bouts, so read direction, not the exact value."))),
+            uiOutput("densityInsight"), spin(plotlyOutput("densityPlot", height = "320px"))),
+          card(full_screen = TRUE,
+            card_head("calculator", "How many taxa really? (Chao1)",
+              info_pop("Chao1", p(tags$b("Chao1"), " is an asymptotic, bias-corrected ", tags$b("minimum"), " estimate of richness (Chao 1984). Benthic sampling misses rare taxa, so the true total is higher than what is found. Suppressed where the count is too small to estimate honestly."))),
+            uiOutput("chaoBanner")))),
+      nav_panel(title = tagList(bs_icon("bug-fill"), " Taxa Board"), value = "board",
+        div(class = "tab-head", div(class = "tab-head-text",
+          h4("Every taxon on one board",
+             info_pop("Taxa Board",
+               p("Each dot is a ", tags$b("taxon"), ", placed by its ", tags$b("mean density"), " (individuals per m", tags$sup("2"), ", log scale) and its ", tags$b("ubiquity"), " (% of samples it shows up on)."),
+               p(tags$b("Tap a dot"), " to pin its card; open any taxon's full profile."))),
+          p("Each dot is a taxon, how dense × how widespread. EPT (clean-water) taxa are teal. Tap to pin a card."),
+          span(class = "scope-chip scope-site", bs_icon("geo-alt-fill"), " Showing this site only"))),
+        card(full_screen = TRUE,
+          card_head("bug-fill", "Density × ubiquity, by taxon",
+            info_pop("Reading this", p("Top-right = dense and everywhere; bottom-right = locally dense specialist; top-left = thinly everywhere. The ", tags$span(style="color:#0a6f7a;font-weight:700","teal diamond"), " is the taxon you're viewing. Colour = EPT vs other."))),
+          div(class = "sizelab-toolbar",
+            tags$button(class = "smt-snap-btn", type = "button", onclick = "smtSaveScatter()", bsicons::bs_icon("camera-fill"), " Download (with pinned cards)"),
+            downloadButton("taxaCsv", "Taxa board (CSV)", class = "smt-clear-btn"),
+            tags$button(class = "smt-clear-btn", type = "button", onclick = "smtClearPins()", bsicons::bs_icon("eraser-fill"), " Clear pins"),
+            tags$span(class = "sizelab-hint", bs_icon("hand-index-thumb"), " interactive · tap a dot to pin its card")),
+          div(class = "smt-pinnable", id = "boardPin", spin(plotlyOutput("taxaScatter", height = "540px")))),
+        uiOutput("spCardSlot")),
+      nav_panel(title = tagList(bs_icon("bar-chart-steps"), " Diversity"), value = "diversity",
+        div(class = "tab-head", div(class = "tab-head-text",
+          h4("Diversity and composition"),
+          p("Rarefied richness and common-taxa diversity per bout (suppressed where the count is too small to standardize), and the composition stack: who makes up the community."),
+          span(class = "scope-chip scope-site", bs_icon("geo-alt-fill"), " Showing this site only"))),
+        layout_columns(col_widths = c(6, 6),
+          card(full_screen = TRUE,
+            card_head("graph-up", "Standardized richness per bout",
+              info_pop("Rarefied richness",
+                p(tags$b("Rarefied richness"), " (Hurlbert 1971) is taxon richness standardized to a common 100 individuals, so a bout with more individuals doesn't look richer just for being bigger. ", tags$b("Hill q1"), " is the effective number of common taxa."),
+                p(class="pop-caveat", bs_icon("exclamation-triangle"), " Bouts under 100 individuals or 3 samples are suppressed, not shown with false precision."))),
+            uiOutput("divInsight"), spin(plotlyOutput("diversityPlot", height = "360px"))),
+          card(full_screen = TRUE,
+            card_head("pie-chart", "Composition across bouts",
+              info_pop("Composition",
+                p("Each bout's share of ", tags$span(style="color:#0e8f9c;font-weight:700","EPT"), " / ", tags$span(style="color:#e0a13b;font-weight:700","Chironomidae"), " (midges) / ", tags$span(style="color:#b06a4a;font-weight:700","Oligochaeta"), " (worms) / other. Midge- and worm-heavy assemblages are often (not always) the more tolerant ones."),
+                p(class="pop-caveat", bs_icon("exclamation-triangle"), " A surrogate, not a tolerance score. There is no calibrated index here."))),
+            spin(plotlyOutput("compPlot", height = "360px"))))),
+      nav_panel(title = tagList(bs_icon("globe-americas"), " Across the country"), value = "cross",
+        div(class = "tab-head", div(class = "tab-head-text",
+          h4("One protocol, 34 aquatic sites, a continent of waters"),
+          p("Each dot is a NEON aquatic site, placed by a geographic gradient against its community. Tap a dot to pin its card or jump to that site."),
+          span(class = "scope-chip scope-all", bs_icon("globe-americas"), " All 34 NEON aquatic sites, not just this one")),
+          div(class = "sizelab-controls",
+            selectInput("crossMetric", tagList(bs_icon("bar-chart"), " Community metric (y)"),
+              choices = c("EPT richness" = "ept_richness", "EPT share (% of individuals)" = "pct_ept_ind",
+                          "Richness · observed" = "richness", "Richness · rarefied" = "rarefied_richness",
+                          "Density index (log)" = "density_m2", "Common-taxa diversity (Hill q1)" = "hill_q1"),
+              selected = "ept_richness", width = "260px"),
+            selectInput("crossX", tagList(bs_icon("rulers"), " Gradient (x)"),
+              choices = c("Elevation (m)" = "elevation", "Latitude" = "lat"), selected = "elevation", width = "180px"))),
+        card(full_screen = TRUE,
+          card_head("globe-americas", "Community across the gradient",
+            info_pop("Reading this",
+              p("Each dot is a site; ", tags$b("size = survey effort"), " (bouts); colour = water type (", tags$span(style="color:#0e8f9c;font-weight:700","stream"), " / ", tags$span(style="color:#2f7daa;font-weight:700","river"), " / ", tags$span(style="color:#5a8f3e;font-weight:700","lake"), "); the ", tags$span(style="color:#0a6f7a;font-weight:700","teal diamond"), " is the site you're viewing."),
+              p("This is ", tags$b("space-for-time"), ", 34 different places observed at once, not one place changing, so it's correlational and confounded by water type and habitat. The density index is within-site, so compare sites by ", tags$b("direction, not by who has the higher raw number"), " (it uses a log axis)."))),
+          div(class = "sizelab-toolbar",
+            tags$button(class = "smt-snap-btn", type = "button", onclick = "smtSaveClimate()", bsicons::bs_icon("camera-fill"), " Download (with pinned cards)"),
+            downloadButton("crossSiteCsv", "Cross-site table (CSV)", class = "smt-clear-btn"),
+            tags$button(class = "smt-clear-btn", type = "button", onclick = "smtClearPins()", bsicons::bs_icon("eraser-fill"), " Clear pins"),
+            tags$span(class = "sizelab-hint", bs_icon("hand-index-thumb"), " interactive · tap a site to pin its card")),
+          div(class = "smt-pinnable", id = "climatePin", spin(plotlyOutput("crossGradient", height = "560px"))),
+          div(class = "confound-note", bs_icon("info-circle-fill"),
+            tags$span(HTML("Lakes (green) sit naturally low on EPT, that is the ecosystem, not impairment. Streams and rivers are not directly comparable to lakes on EPT metrics."))))),
+      nav_panel(title = tagList(bs_icon("search"), " Search"), value = "search",
+        div(class = "tab-head", div(class = "tab-head-text",
+          h4("Search the network"),
+          p("Two ways to query all 34 NEON aquatic sites at once, from the bundled index (no download, instant). Find a taxon to see every site it turns up at, or set a threshold to list the sites that clear it. Jump straight to any site from the results."),
+          span(class = "scope-chip scope-all", bs_icon("globe-americas"), " All 34 NEON aquatic sites"))),
+        div(class = "search-modeswitch",
+          radioButtons("searchMode", NULL, inline = TRUE,
+            choiceNames = list(
+              tagList(bs_icon("bug-fill"), " Find a taxon"),
+              tagList(bs_icon("funnel-fill"), " Threshold query")),
+            choiceValues = c("taxon", "threshold"), selected = "taxon")),
+
+        # ---- mode A: FIND A TAXON ------------------------------------------
+        conditionalPanel("input.searchMode == 'taxon'",
+          card(
+            card_head("bug-fill", "Find a taxon across the network",
+              info_pop("Find a taxon",
+                p("Pick any macroinvertebrate taxon in the network. The table lists every site it was found at, with that site's ", tags$b("mean density"), " for the taxon (individuals per m", tags$sup("2"), ") and how widespread it is there (", tags$b("ubiquity"), ", the share of samples it shows up on)."),
+                p(class = "pop-caveat", bs_icon("exclamation-triangle"), " Density is a ", tags$b("within-site index, not an absolute ranking"), ". A higher number at one site does not mean more bugs in nature, it means a denser sampled assemblage. Compare direction, not raw value."))),
+            div(class = "search-pick",
+              selectizeInput("searchTaxon", tagList(bs_icon("search"), " Taxon"), choices = NULL, width = "100%",
+                             options = list(placeholder = "Type a name, e.g. Baetis…"))),
+            div(class = "search-caption", uiOutput("searchTaxonCaption")),
+            div(style = "width:100%", DT::DTOutput("searchTaxonTbl")))),
+
+        # ---- mode B: THRESHOLD QUERY ---------------------------------------
+        conditionalPanel("input.searchMode == 'threshold'",
+          card(
+            card_head("funnel-fill", "List the sites that clear a threshold",
+              info_pop("Threshold query",
+                p("Set a minimum on a community metric and list the sites that meet it. ", tags$b("EPT richness"), " is the number of mayfly / stonefly / caddisfly taxa found (the clean-water groups). ", tags$b("%EPT"), " is the share of all individuals that are EPT."),
+                p(class = "pop-caveat", bs_icon("exclamation-triangle"), " These are ", tags$b("space-for-time"), " comparisons across different waters, confounded by water type and habitat. Lakes are naturally EPT-poor, so a low EPT site is not impaired."))),
+            div(class = "search-thresh-row",
+              div(class = "sp-field",
+                selectInput("threshMetric", tagList(bs_icon("bar-chart"), " Metric"),
+                  choices = c("EPT richness (# of EPT taxa)" = "ept_richness",
+                              "%EPT (share of individuals)" = "pct_ept_ind"),
+                  selected = "ept_richness", width = "100%")),
+              div(class = "sp-field",
+                numericInput("threshValue", tagList(bs_icon("chevron-up"), " Minimum (greater than)"),
+                  value = 30, min = 0, step = 1, width = "100%"))),
+            div(class = "search-caption", uiOutput("searchThreshCaption")),
+            div(style = "width:100%", DT::DTOutput("searchThreshTbl"))))),
+
+      nav_panel(title = tagList(bs_icon("droplet-fill"), " Taxon Profile"), value = "species", uiOutput("speciesProfile")),
+      nav_panel(title = tagList(bs_icon("map-fill"), " Map"), value = "map",
+        div(class = "tab-head", div(class = "tab-head-text",
+          h4("The sampled reach"),
+          p("NEON samples a fixed reach at each aquatic site, so most sites are a single station, sized by density. Where several named stations exist they show separately."),
+          span(class = "scope-chip scope-site", bs_icon("geo-alt-fill"), " Showing this site only")),
+          div(class = "map-controls",
+            selectInput("view", "Basemap", width = "180px", choices = c("Terrain" = "Esri.WorldTopoMap", "Light" = "CartoDB.Positron", "Satellite" = "Esri.WorldImagery")))),
+        spin(leafletOutput("siteMap", height = "560px")),
+        uiOutput("reachPanel")),
+      nav_panel(title = tagList(bs_icon("info-circle"), " About"), value = "about", uiOutput("aboutPanel"))
+    )),
+  div(class = "ddl-footer",
+    div(tags$a(class = "custom-cta", href = "mailto:desertdatalabs@gmail.com?subject=NEON%20My%20Little%20Inverts",
+      span(class = "hand", "\U0001F44B"), "Questions or feedback? Get in touch with Desert Data Labs.")),
+    p(style = "margin-top:12px", HTML("Built by <strong>Desert Data Labs</strong> · Tucson, AZ · get in touch "),
+      tags$a(href = "mailto:desertdatalabs@gmail.com?subject=NEON%20My%20Little%20Inverts", "desertdatalabs@gmail.com")),
+    p(style = "font-size:12px;opacity:.85", "Data: NEON Macroinvertebrate collection (DP1.20120.001). Not affiliated with NEON, Battelle, or the NSF. An educational data-exploration tool."))
+)

@@ -2,3 +2,18 @@
 .Rhistory
 .RData
 .Ruserdata
+.neon_token
+.vs/
+.vscode/
+*.Rproj.bak
+
+# the raw NEON fetch lives one dir up and is NEVER committed (the app is
+# bundle-only — it reads data/sites/*.rds, never the raw stack)
+../inverts-data-fetch/
+
+# review-agent + boot-test scratch (these never ship)
+_*.R
+_adv_check*.R
+_verify_*.R
+_boot.R
+_inspect.R

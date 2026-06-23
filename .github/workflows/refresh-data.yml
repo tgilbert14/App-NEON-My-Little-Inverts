@@ -1,0 +1,125 @@
+name: Refresh NEON data bundle
+
+# Keeps the bundled "database" current and lets Posit Connect Cloud auto-redeploy.
+# Connect Cloud watches this repo and re-publishes on every push to `main`.
+#
+# CADENCE — tuned to how the macroinvertebrate product updates:
+#   • MONTHLY (first Saturday night, Arizona time): rebuild the cross-site /
+#     index precompute + the deploy manifest from the COMMITTED bundles and push.
+#     Fast and low-risk; it never drops sites.
+#   • ON DEMAND: the full 34-site invert re-pull (DP1.20120.001). Benthic
+#     collections publish on a lag, so a monthly re-pull is wasteful; tick
+#     `skip_download=false` in the Actions tab when NEON publishes a new season.
+#     (skip_download defaults TRUE so the scheduled run NEVER fetches.)
+#
+# REQUIRES one optional repo secret (Settings → Secrets and variables → Actions):
+#   NEON_TOKEN   a free NEON API token (raises the anonymous rate limit).
+#
+# NOTE: `main` must be UNPROTECTED so the github-actions bot can push directly
+# (a required-PR-review rule silently blocks the auto-deploy). The OWNER sets
+# that in the repo dashboard — the agent can't.
+
+on:
+  schedule:
+    # Every Sunday 06:00 UTC == Saturday 23:00 America/Phoenix (Arizona, no DST).
+    - cron: "0 6 * * 0"
+  workflow_dispatch:
+    inputs:
+      skip_download:
+        description: "Skip the heavy NEON re-pull; just rebuild precompute + manifest from committed bundles and push (fast pipeline test)."
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.check.outputs.run }}
+    steps:
+      - id: check
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "Manual run — proceeding."; echo "run=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          dow=$(TZ='America/Phoenix' date +%u)    # 6 = Saturday
+          day=$(TZ='America/Phoenix' date +%-d)
+          if [ "$dow" = "6" ] && [ "$day" -le 7 ]; then
+            echo "First Saturday in Arizona (day $day) — proceeding."
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Not the first Saturday (dow=$dow day=$day) — skipping."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  refresh:
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    env:
+      NEON_TOKEN: ${{ secrets.NEON_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+
+      - name: Install R packages
+        uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          packages: >
+            neonUtilities, dplyr, tibble, tidyr, stringr, rsconnect, jsonlite,
+            shiny, bslib, bsicons, plotly, leaflet, DT, shinyjs,
+            shinycssloaders, RColorBrewer, htmltools
+
+      # Heavy, ON-DEMAND: re-pull all 34 invert sites and re-build the bundles.
+      # GATED on skip_download — both the fetch AND the build_inv_data bundle step
+      # are guarded, so a skip_download run never tries to re-bundle a site whose
+      # *_raw.rds was not fetched (the classic "fetch gated, bundle un-gated" bug).
+      # Guarded so a partial pull can't silently shrink the app (floor = 28 sites).
+      - name: Re-pull + re-bundle invert sites (on demand)
+        if: ${{ github.event.inputs.skip_download != 'true' }}
+        timeout-minutes: 240
+        run: |
+          Rscript scripts/fetch_inv_all.R
+          if [ -f ../inverts-data-fetch/DP1.20120.001_all.rds ]; then
+            Rscript scripts/build_inv_data.R
+            n=$(ls data/sites/*.rds 2>/dev/null | wc -l)
+            echo "built $n site bundles"
+            if [ "$n" -lt 28 ]; then
+              echo "Only $n site bundles (<28) — something went wrong; failing so we don't push a shrunk app." ; exit 1
+            fi
+          else
+            echo "No raw fetch produced — keeping the committed bundles."
+          fi
+
+      # Rebuild the precompute the app loads at boot from the COMMITTED bundles,
+      # then the deploy manifest (regenerate or Connect serves a stale package set).
+      # build_cross_site re-derives data/site_index.rds + data/cross_site.rds from
+      # data/sites/*.rds; it is a clean no-op-safe rebuild on the skip path.
+      - name: Rebuild cross-site index + manifest
+        run: |
+          Rscript scripts/build_cross_site.R
+          Rscript scripts/write_manifest.R
+
+      # Push the refreshed data straight to main -> Connect Cloud re-publishes.
+      # A prior CI auto-push may have moved the remote ahead, so rebase first.
+      - name: Commit & push refreshed data
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+          git rebase --autostash origin/main || true
+          git add data/sites data/site_index.rds data/cross_site.rds data-sample manifest.json
+          if git diff --cached --quiet; then
+            echo "No data changes — nothing to push."
+          else
+            git commit -m "data: monthly NEON invert refresh (cross-site precompute + manifest) [bot]"
+            git push origin HEAD:main
+            echo "Pushed refreshed data — Connect Cloud will re-publish."
+          fi
