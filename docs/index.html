@@ -228,13 +228,13 @@
       padding:14px 16px; justify-content:flex-start; animation:none }
     html:not(.js) .cnode-lab { font-size:.95rem; margin-top:0 }
 
-    /* ---------- digital mosquito (top-right hero accent) ---------- */
+    /* ---------- digital mayfly nymph "Riffle" (top-right hero accent) ---------- */
     .flybird { position:absolute; top:-6px; right:-6px; width:clamp(150px,23vw,290px);
       z-index:-1; pointer-events:none; animation: cbBob 4.6s ease-in-out infinite; }
     .flybird svg { width:100%; height:auto; overflow:visible; display:block }
     .flybird .halo { transform-box:fill-box; transform-origin:center; animation: cbHalo 5s ease-in-out infinite }
     .flybird .bird { transform-box:fill-box; transform-origin:50% 70%;
-      filter:drop-shadow(0 7px 14px rgba(12,8,24,.45)) drop-shadow(0 0 13px rgba(184,242,74,.42));
+      filter:drop-shadow(0 7px 14px rgba(7,35,42,.45)) drop-shadow(0 0 13px rgba(43,183,196,.45));
       animation: cbSquish 4.6s ease-in-out infinite }
     .flybird .eyes { transform-box:fill-box; transform-origin:center; animation: cbBlink 5.4s ease-in-out infinite }
     .flybird .wing-l { transform-box:fill-box; transform-origin:74% 16%; animation: cbFlutL 2.6s ease-in-out infinite }
@@ -281,65 +281,65 @@
         <svg viewBox="0 0 300 250">
           <defs>
             <radialGradient id="msHalo" cx="50%" cy="48%" r="55%">
-              <stop offset="0%" stop-color="#b8f24a" stop-opacity=".5" />
-              <stop offset="46%" stop-color="#9d7bff" stop-opacity=".22" />
-              <stop offset="100%" stop-color="#9d7bff" stop-opacity="0" />
+              <stop offset="0%" stop-color="#7fe7ef" stop-opacity=".5" />
+              <stop offset="46%" stop-color="#2bb7c4" stop-opacity=".22" />
+              <stop offset="100%" stop-color="#2bb7c4" stop-opacity="0" />
             </radialGradient>
             <radialGradient id="msBody" cx="40%" cy="30%" r="74%">
-              <stop offset="0%" stop-color="#e6daff" />
-              <stop offset="52%" stop-color="#9d7bff" />
-              <stop offset="100%" stop-color="#5e39c4" />
+              <stop offset="0%" stop-color="#d6f7fa" />
+              <stop offset="52%" stop-color="#0e8f9c" />
+              <stop offset="100%" stop-color="#0a4f57" />
             </radialGradient>
             <radialGradient id="msBelly" cx="50%" cy="34%" r="70%">
-              <stop offset="0%" stop-color="#f4efff" />
-              <stop offset="100%" stop-color="#d6c4ff" />
+              <stop offset="0%" stop-color="#eafdff" />
+              <stop offset="100%" stop-color="#7fe7ef" />
             </radialGradient>
-            <linearGradient id="msWing" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="#d6ff7a" />
-              <stop offset="100%" stop-color="#8b6bf0" />
-            </linearGradient>
           </defs>
           <circle class="halo" cx="150" cy="126" r="104" fill="url(#msHalo)" />
-          <!-- faint monsoon rain streaks behind -->
-          <g stroke="rgba(184,242,74,.18)" stroke-width="2.5" stroke-linecap="round">
-            <path d="M70,26 L60,70" /><path d="M104,14 L94,58" /><path d="M232,30 L222,74" /><path d="M260,60 L250,104" />
+          <!-- faint rising bubbles behind (Riffle lives in clean, oxygenated water) -->
+          <g fill="rgba(127,231,239,.30)">
+            <circle cx="64" cy="60" r="4" /><circle cx="92" cy="34" r="3" /><circle cx="232" cy="50" r="3.5" /><circle cx="252" cy="80" r="2.6" />
           </g>
           <g class="bird">
             <!-- antennae -->
-            <g stroke="#b8f24a" stroke-width="3.4" stroke-linecap="round" fill="none">
-              <path d="M132,78 Q120,48 126,34" /><path d="M168,78 Q180,48 174,34" />
-              <circle cx="126" cy="34" r="3.2" fill="#d6ff7a" stroke="none" />
-              <circle cx="174" cy="34" r="3.2" fill="#d6ff7a" stroke="none" />
+            <g stroke="#2bb7c4" stroke-width="3.4" stroke-linecap="round" fill="none">
+              <path d="M134,74 Q124,46 132,30" /><path d="M166,74 Q176,46 168,30" />
+              <circle cx="132" cy="30" r="3.4" fill="#7fe7ef" stroke="none" />
+              <circle cx="168" cy="30" r="3.4" fill="#7fe7ef" stroke="none" />
             </g>
-            <!-- legs (six, soft) -->
-            <g stroke="#6f4ad0" stroke-width="3.2" stroke-linecap="round" fill="none">
-              <path d="M120,176 q-26,18 -44,14" /><path d="M124,186 q-22,26 -42,30" /><path d="M126,168 q-30,6 -50,-4" />
-              <path d="M180,176 q26,18 44,14" /><path d="M176,186 q22,26 42,30" /><path d="M174,168 q30,6 50,-4" />
+            <!-- three tails (cerci) — the mayfly-nymph signature -->
+            <g stroke="#0a6f7a" stroke-width="3.4" stroke-linecap="round" fill="none">
+              <path d="M126,186 q-20,28 -44,36" /><path d="M134,190 q-12,32 -28,44" />
+              <path d="M174,186 q20,28 44,36" /><path d="M166,190 q12,32 28,44" />
+              <path d="M150,190 q0,36 0,44" />
             </g>
-            <!-- wings -->
-            <path class="wing wing-l" d="M104,104 Q60,96 50,150 Q92,150 118,118 Q114,108 104,104 Z" fill="url(#msWing)" opacity=".88" />
-            <path class="wing wing-r" d="M196,104 Q240,96 250,150 Q208,150 182,118 Q186,108 196,104 Z" fill="url(#msWing)" opacity=".88" />
-            <!-- body + belly -->
-            <ellipse cx="150" cy="130" rx="62" ry="66" fill="url(#msBody)" />
-            <ellipse cx="150" cy="152" rx="40" ry="44" fill="url(#msBelly)" />
+            <!-- legs -->
+            <g stroke="#0a6f7a" stroke-width="3" stroke-linecap="round" fill="none">
+              <path d="M118,134 q-32,4 -48,-12" /><path d="M118,154 q-30,16 -52,16" />
+              <path d="M182,134 q32,4 48,-12" /><path d="M182,154 q30,16 52,16" />
+            </g>
+            <!-- gill plates along the abdomen (faint teal frills) -->
+            <g fill="#7fe7ef" fill-opacity=".55">
+              <ellipse cx="110" cy="114" rx="12" ry="18" /><ellipse cx="190" cy="114" rx="12" ry="18" />
+              <ellipse cx="114" cy="146" rx="11" ry="16" /><ellipse cx="186" cy="146" rx="11" ry="16" />
+            </g>
+            <!-- body (head + segmented abdomen) -->
+            <ellipse cx="150" cy="106" rx="40" ry="36" fill="url(#msBody)" />
+            <ellipse cx="150" cy="150" rx="32" ry="40" fill="url(#msBody)" />
+            <ellipse cx="150" cy="150" rx="18" ry="30" fill="url(#msBelly)" />
             <!-- blush -->
-            <g fill="#ff9ec4" opacity=".30">
-              <ellipse cx="120" cy="130" rx="11" ry="7.5" /><ellipse cx="180" cy="130" rx="11" ry="7.5" />
+            <g fill="#ff9ec4" opacity=".28">
+              <ellipse cx="126" cy="110" rx="13" ry="9" /><ellipse cx="174" cy="110" rx="13" ry="9" />
             </g>
-            <!-- proboscis: a cute short amber snout, not a needle -->
-            <path d="M142,150 L158,150 L150,176 Z" fill="#ffc24a" />
-            <path d="M146,156 L154,156 L150,172 Z" fill="#e8920f" />
             <!-- eyes -->
             <g class="eyes">
-              <circle cx="128" cy="114" r="14" fill="#1a1030" />
-              <circle cx="172" cy="114" r="14" fill="#1a1030" />
-              <circle cx="123" cy="108" r="5" fill="#ffffff" />
-              <circle cx="167" cy="108" r="5" fill="#ffffff" />
-              <circle cx="133" cy="119" r="2.2" fill="#ffffff" opacity=".75" />
-              <circle cx="177" cy="119" r="2.2" fill="#ffffff" opacity=".75" />
+              <circle cx="134" cy="100" r="13" fill="#0b2a30" />
+              <circle cx="166" cy="100" r="13" fill="#0b2a30" />
+              <circle cx="130.6" cy="95.6" r="4.6" fill="#ffffff" />
+              <circle cx="162.6" cy="95.6" r="4.6" fill="#ffffff" />
             </g>
           </g>
-          <g fill="#e7ffc4">
+          <g fill="#cdf7fb">
             <circle class="spark s1" cx="56" cy="78" r="3.2" />
             <circle class="spark s2" cx="246" cy="92" r="2.6" />
             <circle class="spark s3" cx="214" cy="46" r="2.2" />

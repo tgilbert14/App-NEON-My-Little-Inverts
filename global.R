@@ -18,6 +18,7 @@ suppressPackageStartupMessages({
 })
 source("R/site_metadata.R", local = FALSE)
 source("R/inv_helpers.R",   local = FALSE)
+source("R/report_pdf.R",    local = FALSE)
 
 NEON_DPID <- "DP1.20120.001"   # Macroinvertebrate collection
 # neonUtilities is referenced by a COMPUTED name so the rsconnect static scan
@@ -116,8 +117,11 @@ ept_col <- function(c) { out <- unname(EPT_COL[c]); ifelse(is.na(out), unname(EP
 TYPE_COL <- c(stream = "#0e8f9c", river = "#2f7daa", lake = "#5a8f3e")
 type_col <- function(t) { out <- unname(TYPE_COL[t]); ifelse(is.na(out), "#94a7ad", out) }
 TYPE_LAB <- c(stream = "Stream", river = "River", lake = "Lake")
-# composition stack — EPT teal, midge amber, worm rust, other slate
-COMP_COL <- c(EPT = "#0e8f9c", Chironomidae = "#e0a13b", Oligochaeta = "#b06a4a", other = "#aab9bd")
+# composition stack — EPT teal, midge amber, worm dark-brown, other slate.
+# The two tolerant groups are split by LIGHTNESS (amber vs deep saddle-brown),
+# not just hue, so the midge/worm boundary survives deutan/protan CVD in the
+# stacked band (a same-hue amber/rust pair washed out). (Vera)
+COMP_COL <- c(EPT = "#0e8f9c", Chironomidae = "#e6b035", Oligochaeta = "#8a5a2b", other = "#aab9bd")
 comp_col <- function(c) { out <- unname(COMP_COL[c]); ifelse(is.na(out), "#aab9bd", out) }
 
 app_theme <- bs_theme(version = 5, bg = "#f8fdfd", fg = DDL$ink,
@@ -153,7 +157,7 @@ SUITE_REGISTRY <- list(
   list(name = "Ground Beetle Tracker", emoji = "\U0001FAB2", tag = "pitfall carabids by site", dpid = "DP1.10022.001", url = "https://tgilbert14.github.io/NEON-Ground-Beetle-Tracker/"),
   list(name = "Water Chemistry",       emoji = "\U0001F4A7", tag = "stream chemistry and conductivity", dpid = "DP1.20093.001", url = "https://tgilbert14.github.io/NEON-WaterChemistry-Analyte-Viewer-App/"),
   list(name = "Mosquito Pulse",        emoji = "\U0001F99F", tag = "CO2-trap mosquitoes, the monsoon pulse", dpid = "DP1.10043.001", url = "https://tgilbert14.github.io/NEON-Mosquito-Pulse/"),
-  list(name = "My Little Inverts",     emoji = "\U0001FAB2", tag = "stream and lake bottom-dwellers, EPT", dpid = "DP1.20120.001", url = "https://tgilbert14.github.io/NEON-My-Little-Inverts/"),
+  list(name = "My Little Inverts",     emoji = "\U0001F990", tag = "stream and lake bottom-dwellers, EPT", dpid = "DP1.20120.001", url = "https://tgilbert14.github.io/NEON-My-Little-Inverts/"),
   list(name = "Driver Cascade",        emoji = "\U0001F30E", tag = "cross-product synthesis, the master view", dpid = "cascade", url = "https://tgilbert14.github.io/NEON-Driver-Cascade/"))
 
 # ---------------------------------------------------------------------------

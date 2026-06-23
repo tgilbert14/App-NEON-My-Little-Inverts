@@ -32,12 +32,22 @@
      a pin's leader line follows the dot through any resize/relayout. */
   function anchorPx(gd, box, dx, dy) {
     var fl = gd && gd._fullLayout;
-    if (!fl || !fl.xaxis || !fl.yaxis || typeof fl.xaxis.l2p !== "function") return null;
-    var gdR = gd.getBoundingClientRect(), boxR = box.getBoundingClientRect();
-    return {
-      ax: fl.xaxis.l2p(dx) + fl.xaxis._offset + (gdR.left - boxR.left),
-      ay: fl.yaxis.l2p(dy) + fl.yaxis._offset + (gdR.top - boxR.top)
+    if (!fl || !fl.xaxis || !fl.yaxis) return null;
+    // c2p() applies the axis's c2l() FIRST (log10 for a log axis, identity for
+    // linear/date/category), so it maps a RAW data value to pixels correctly on
+    // every axis type. l2p() expects an already-linearized coordinate, so on the
+    // Taxa Board's log density axis it placed the anchor as if the raw density
+    // were a log10 value — the off-point pin. Keep l2p only as a last-resort
+    // fallback for any build that doesn't expose c2p.
+    var px = function (axis, v) {
+      return (typeof axis.c2p === "function") ? axis.c2p(v) : axis.l2p(v);
     };
+    if (typeof fl.xaxis.c2p !== "function" && typeof fl.xaxis.l2p !== "function") return null;
+    var gdR = gd.getBoundingClientRect(), boxR = box.getBoundingClientRect();
+    var ax = px(fl.xaxis, dx) + fl.xaxis._offset + (gdR.left - boxR.left);
+    var ay = px(fl.yaxis, dy) + fl.yaxis._offset + (gdR.top - boxR.top);
+    if (!isFinite(ax) || !isFinite(ay)) return null;   // degenerate layout -> caller falls back to box center
+    return { ax: ax, ay: ay };
   }
 
   function linesLayer(box) {
@@ -100,12 +110,12 @@
     var layer = linesLayer(box);
     var ln = document.createElementNS(NS, "line");
     ln.setAttribute("x1", a.ax); ln.setAttribute("y1", a.ay);
-    ln.setAttribute("stroke", "#b8f24a"); ln.setAttribute("stroke-width", "2.5");
+    ln.setAttribute("stroke", "#2bb7c4"); ln.setAttribute("stroke-width", "2.5");   // riffle aqua (was lime #b8f24a)
     ln.setAttribute("stroke-linecap", "round");
     layer.appendChild(ln);
     var dot = document.createElementNS(NS, "circle");
     dot.setAttribute("cx", a.ax); dot.setAttribute("cy", a.ay); dot.setAttribute("r", "4.5");
-    dot.setAttribute("fill", "#b8f24a"); dot.setAttribute("stroke", "#1b1530");
+    dot.setAttribute("fill", "#0a6f7a"); dot.setAttribute("stroke", "#ffffff");      // matches the "viewing" diamond + #fff marker edge
     dot.setAttribute("stroke-width", "1.5");
     layer.appendChild(dot);
     pin.__line = ln; pin.__dot = dot;
@@ -180,13 +190,18 @@
      count / x-ordering, which recolour and select would falsely trip. */
   function dataSig(gd) {
     if (!gd.data || !gd.data.length) return "";
-    var tags = [];
+    // dedupe: the "★ viewing" highlight trace re-emits a tag already in the base
+    // set, so a push-list would gain a duplicate token and falsely flip the
+    // signature — clearing pins every time the user selects a taxon/site. A set
+    // keeps the signature stable on select, and still changes when the plotted
+    // entities genuinely change (new site / new metric filter -> new tags).
+    var seen = {};
     gd.data.forEach(function (t) {
       if (t.customdata) t.customdata.forEach(function (h) {
-        var m = String(h).match(/data-tag='([^']+)'/); if (m) tags.push(m[1]);
+        var m = String(h).match(/data-tag='([^']+)'/); if (m) seen[m[1]] = 1;
       });
     });
-    return tags.sort().join(",");
+    return Object.keys(seen).sort().join(",");
   }
 
   /* (re)bind a plotly graph div. Safe to call repeatedly — it removes any prior
@@ -264,8 +279,8 @@
         .then(function () { saving = false; });
     }, 90);
   }
-  window.smtSaveScatter = function () { snap(document.getElementById("boardPin") || document.querySelector(".smt-pinnable"), "neon-mosquito-swarm-board.png"); };
-  window.smtSaveClimate = function () { snap(document.getElementById("climatePin"), "neon-mosquito-climate-gradient.png"); };
+  window.smtSaveScatter = function () { snap(document.getElementById("boardPin") || document.querySelector(".smt-pinnable"), "neon-inverts-taxa-board.png"); };
+  window.smtSaveClimate = function () { snap(document.getElementById("climatePin"), "neon-inverts-cross-site-gradient.png"); };
   window.smtSaveQcCard = function () {
     var node = document.getElementById("qcCardNode");
     if (!node) return;

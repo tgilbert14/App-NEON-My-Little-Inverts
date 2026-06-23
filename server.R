@@ -22,7 +22,7 @@ server <- function(input, output, session) {
       hoverlabel = list(bgcolor = if (dark) "rgba(11,42,48,0.97)" else "rgba(16,42,51,0.95)", bordercolor = "#2bb7c4", font = list(color = "#fff", family = "Rubik", size = 13))) %>%
       plotly::config(displayModeBar = FALSE, responsive = TRUE)
   }
-  note_plot <- function(msg, icon = "\U0001FAB2") plotly::plot_ly(type="scatter", mode="markers") %>%
+  note_plot <- function(msg, icon = "\U0001F990") plotly::plot_ly(type="scatter", mode="markers") %>%
     plotly::layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", xaxis=list(visible=FALSE), yaxis=list(visible=FALSE),
       annotations=list(list(text=paste0(icon,"<br>",msg), showarrow=FALSE, font=list(color=if(is_dark())"#8db4ba" else "#5d7c84", size=15), align="center"))) %>%
     plotly::config(displayModeBar = FALSE)
@@ -46,7 +46,7 @@ server <- function(input, output, session) {
     div(class="site-cards", lapply(seq_len(nrow(site_table)), function(i){ r <- site_table[i,]
       tags$a(class="site-card", href="#",
         onclick=sprintf("smtLoadStart('%s · loading…');Shiny.setInputValue('siteExplore','%s',{priority:'event'});return false;", gsub("'","",r$name), r$site),
-        div(class="sc-emoji","\U0001FAB2"),
+        div(class="sc-emoji","\U0001F990"),
         div(class="sc-body", div(class="sc-name", tags$b(r$site), sprintf(" · %s", r$name)),
           div(class="sc-meta", sprintf("%s · %s · %s taxa · %s EPT taxa", r$state, TYPE_LAB[r$type] %||% r$type, r$richness %||% "—", r$ept_richness %||% "—")))) }))
   })
@@ -244,7 +244,8 @@ server <- function(input, output, session) {
     div(class="hero-band",
       div(class="hero-title", bs_icon("water"), tags$b(rv$label),
         actionLink("changeSite", tagList(bs_icon("arrow-left-circle"), " change site"), class = "hero-change"),
-        downloadLink("reportCsv", tagList(bs_icon("file-earmark-arrow-down"), " report"), class = "hero-report")),
+        downloadLink("reportPdf", tagList(bs_icon("file-earmark-pdf"), " report (PDF)"), class = "hero-report"),
+        downloadLink("reportCsv", tagList(bs_icon("file-earmark-spreadsheet"), " data (CSV)"), class = "hero-report")),
       div(class="hero-grid",
         hero(sv$richness, "taxa", icon="bug-fill", tone="navy",
           info=info_pop("Taxa", p("The number of distinct ", tags$b("taxa"), " found here across all bouts. Benthic sampling misses rare taxa, so the true total is higher (see the Chao1 estimate)."))),
@@ -321,7 +322,7 @@ server <- function(input, output, session) {
     p %>% plotly_theme() %>% plotly::layout(
       xaxis=list(title="Collection bout"), yaxis=list(title="% EPT (individuals)", rangemode="tozero", ticksuffix="%"),
       yaxis2=list(title="density (/m²)", overlaying="y", side="right", rangemode="tozero", showgrid=FALSE),
-      margin=list(l=56, r=58, t=44, b=44), legend=list(y=-0.18),
+      margin=list(l=56, r=70, t=44, b=44), legend=list(y=-0.18),   # r bumped so the right-axis "density (/m²)" title doesn't clip on narrow widths
       annotations=list(list(text=sprintf("at <b>%s</b> · marker = habitat · colour = sampler · greyed = flagged bout", rv$site %||% "this site"), x=0, y=1.1, xref="paper", yref="paper", showarrow=FALSE, xanchor="left", font=list(color=muted, size=11))))
   })
   output$pulseInsight <- renderUI({
@@ -391,11 +392,22 @@ server <- function(input, output, session) {
   })
   output$compPlot <- renderPlotly({
     cl <- composition_long(rv$bouts); req(cl); if (!nrow(cl)) return(note_plot("No composition data"))
+    # 100% stacked AREA on an evenly-spaced CATEGORICAL bout axis: a filled band
+    # reads composition-share-over-a-sequence far better than thin bars marooned
+    # in the gaps of an irregular date axis. EPT is the bottom anchor; the more
+    # tolerant midge/worm groups and "other" stack above it. (Vera)
+    cl$collectDate <- as.Date(cl$collectDate)
+    bouts <- sort(unique(cl$collectDate))
+    blab  <- make.unique(format(bouts, "%b %Y"))             # unique label even if two bouts share a month
+    cl$bx <- factor(blab[match(cl$collectDate, bouts)], levels = blab)
     p <- plot_ly()
-    for (comp in levels(cl$component)) { sub <- cl[cl$component == comp, ]
-      p <- p %>% add_trace(x=sub$collectDate, y=sub$share, type="bar", name=comp, marker=list(color=comp_col(comp)),
-        hovertemplate=sprintf("%s · %%{y:.0f}%% · %%{x|%%b %%Y}<extra></extra>", comp)) }
-    p %>% plotly_theme() %>% plotly::layout(barmode="stack", xaxis=list(title="Collection bout"),
+    for (comp in levels(cl$component)) {                      # EPT -> Chironomidae -> Oligochaeta -> other (anchor->top)
+      sub <- cl[cl$component == comp, ]; sub <- sub[order(sub$collectDate), ]
+      p <- p %>% add_trace(x=sub$bx, y=sub$share, type="scatter", mode="lines", stackgroup="one",
+        name=comp, line=list(width=0.5, color=comp_col(comp)), fillcolor=comp_col(comp),
+        hovertemplate=sprintf("%s · %%{y:.0f}%% · %%{x}<extra></extra>", comp)) }
+    p %>% plotly_theme() %>% plotly::layout(
+      xaxis=list(title="Collection bout (in order)", type="category"),
       yaxis=list(title="% of individuals", range=c(0,100), ticksuffix="%"))
   })
 
@@ -405,7 +417,7 @@ server <- function(input, output, session) {
     tb$dens <- num(tb$mean_density); tb <- tb[is.finite(tb$dens) & tb$dens > 0, , drop=FALSE]
     tb$reliable <- tb$ubiquity >= 5
     tb$col <- ept_col(tb$class); tb$col[!tb$reliable] <- "rgba(148,167,173,0.4)"
-    tb$tip <- paste0("<span class='smt-pin-emoji'>\U0001FAB2</span> <b><em>", tb$scientificName, "</em></b><br/>",
+    tb$tip <- paste0("<span class='smt-pin-emoji'>\U0001F990</span> <b><em>", tb$scientificName, "</em></b><br/>",
       "<em>", ifelse(is.na(tb$order),"order n/a",tb$order), ifelse(tb$class=="EPT"," · EPT",""), "</em><br/>",
       "<span class='smt-pin-stats'>", round(tb$dens), " /m² · on ", tb$ubiquity, "% of samples<br/>",
       round(tb$total_est), " individuals (est.)</span>",
@@ -419,17 +431,21 @@ server <- function(input, output, session) {
         customdata=~tip, marker=list(color=sub$col, size=12, opacity=0.82, line=list(color="#fff", width=0.5)),
         text=~scientificName, hovertemplate="<b>%{text}</b><br>%{x}% of samples · %{y:.0f}/m²<extra></extra>") }
     mx <- stats::median(tb$ubiquity); my <- stats::median(tb$dens[tb$reliable])
+    # median crosshair: ubiquity median on the linear x, density median on the LOG
+    # y (so the shape coord must be log10(my) — same axis lesson as the pin anchor).
+    shp <- list(list(type="line", xref="x", yref="paper", x0=mx, x1=mx, y0=0, y1=1, line=list(color=qcol, dash="dot", width=1)))
+    if (is.finite(my) && my > 0) shp <- c(shp, list(list(type="line", yref="y", xref="paper", x0=0, x1=1, y0=log10(my), y1=log10(my), line=list(color=qcol, dash="dot", width=1))))
     if (!is.null(rv$sp)) { ir <- tb[tb$scientificName == rv$sp, ]
       if (nrow(ir)==1) p <- p %>% add_trace(x=ir$ubiquity, y=ir$dens, type="scatter", mode="markers", name="★ viewing", customdata=ir$tip, showlegend=TRUE,
         marker=list(symbol="diamond", size=18, color="#0a6f7a", line=list(color="#fff", width=1.6)), hovertemplate=paste0("viewing ", ir$scientificName, "<extra></extra>")) }
     p %>% plotly_theme() %>% plotly::layout(xaxis=list(title="Ubiquity (% of samples present)"), yaxis=list(title="Mean density (individuals / m², log)", type="log"),
-      shapes=list(list(type="line", xref="x", yref="paper", x0=mx, x1=mx, y0=0, y1=1, line=list(color=qcol, dash="dot", width=1))),
+      shapes=shp,
       annotations=list(list(text=sprintf("at <b>%s</b> (this site) · each dot is a taxon · density (within-site index, log) × ubiquity · colour = EPT vs other", rv$site %||% "this site"), x=0, y=1.06, xref="paper", yref="paper", showarrow=FALSE, xanchor="left", font=list(color=muted, size=11))),
       hovermode="closest")
   })
   output$spCardSlot <- renderUI({
-    if (is.null(rv$sp)) return(div(class="qc-empty", div(class="qc-empty-icon","\U0001FAB2"), h4("Tap a taxon to see its card"),
-      p("Tap a dot above and choose “Open taxon profile”, or use the taxon picker above the tabs.")))
+    if (is.null(rv$sp)) return(div(class="qc-empty", div(class="qc-empty-icon","\U0001F990"), h4("Tap a dot above to pin a taxon card here"),
+      p("Each dot is a taxon. Tap one to pin its card, then open its full profile — or use the taxon picker above the tabs.")))
     r <- rv$taxa[rv$taxa$scientificName == rv$sp,]; if (!nrow(r)) return(NULL)
     div(class="lab-sel", span(class="ls-emoji","\U0001F50E"),
       div(class="ls-body", div(class="ls-id", tags$b(em(r$scientificName)), sprintf(" · %.0f /m² · %.0f%% of samples", r$mean_density, r$ubiquity)),
@@ -454,11 +470,11 @@ server <- function(input, output, session) {
     g$xx <- num(g[[xvar]]); g$yy <- num(g[[metric]])
     g$eff <- num(g$n_bouts); g$eff[is.na(g$eff)] <- 1
     g <- g[is.finite(g$xx) & is.finite(g$yy) & (!is_log | g$yy > 0), ]; if (!nrow(g)) return(note_plot("No sites with this combination", "\U0001F30D"))
-    g$tip <- paste0("<span class='smt-pin-emoji'>\U0001FAB2</span> <b>", g$site, " · ", g$name, "</b><br/>",
+    g$tip <- paste0("<span class='smt-pin-emoji'>\U0001F990</span> <b>", g$site, " · ", g$name, "</b><br/>",
       "<em>", TYPE_LAB[g$type] %||% g$type, " · ", g$state, "</em><br/>",
       "<span class='smt-pin-stats'>", g$richness, " taxa · ", g$ept_richness, " EPT · ", round(g$pct_ept_ind), "% EPT<br/>",
       round(g$density_m2), " /m² (index)</span>",
-      "<br/><span class='smt-open' role='button' tabindex='0' data-action='site' data-tag='", g$site, "'>\U0001FAB2 Open this site &rarr;</span>",
+      "<br/><span class='smt-open' role='button' tabindex='0' data-action='site' data-tag='", g$site, "'>\U0001F990 Open this site &rarr;</span>",
       "<br/><em class='smt-pin-hint'>Tap the dot to pin this card</em>")
     sref <- 2 * max(g$eff, na.rm=TRUE) / (26^2); muted <- if (is_dark()) "#8db4ba" else "#5d7c84"
     p <- plot_ly()
@@ -517,7 +533,7 @@ server <- function(input, output, session) {
   qc_icon <- function(level) switch(level, high = "exclamation-octagon-fill", warn = "exclamation-triangle-fill", info = "info-circle-fill", "check-circle-fill")
 
   output$speciesProfile <- renderUI({
-    if (is.null(rv$sp)) return(div(class="qc-empty", div(class="qc-empty-icon","\U0001FAB2"), h4("Pick a taxon to open its profile"),
+    if (is.null(rv$sp)) return(div(class="qc-empty", div(class="qc-empty-icon","\U0001F990"), h4("Pick a taxon to open its profile"),
       p("Use the Taxa Board (tap a dot → “Open taxon profile”) or the taxon picker above the tabs.")))
     r <- rv$taxa[rv$taxa$scientificName == rv$sp,]; req(nrow(r)==1)
     tile <- function(v,l) div(class="qc-tile", div(class="qc-tile-v", v), div(class="qc-tile-l", l))
@@ -602,20 +618,41 @@ server <- function(input, output, session) {
     rr <- range(pts$density_m2, na.rm=TRUE)
     pts$radius <- if (is.finite(diff(rr)) && diff(rr) > 0) 10 + 16*(pts$density_m2 - rr[1])/diff(rr) else 13
     pts$radius[is.na(pts$radius)] <- 11
-    leaflet::leaflet(pts) %>% leaflet::addProviderTiles(input$view %||% "Esri.WorldTopoMap") %>%
-      leaflet::addCircleMarkers(lng=~lng, lat=~lat, radius=~radius, fillColor=DDL$teal, color="#0a6f7a", weight=1.5, fillOpacity=0.85,
-        layerId=~namedLocation,
-        label=~lapply(sprintf("<div style='font-family:Rubik,sans-serif'><b>%s</b><br>%s · %s sampler · %d samples<br>%s /m² density</div>",
+    m <- leaflet::leaflet(pts) %>%
+      leaflet::addProviderTiles(input$view %||% "Esri.WorldTopoMap") %>%
+      leaflet::addScaleBar(position="bottomleft", options=leaflet::scaleBarOptions(imperial=TRUE, maxWidth=140)) %>%
+      leaflet::addCircleMarkers(lng=~lng, lat=~lat, radius=~radius, fillColor=DDL$teal, color=DDL$teal2,
+        weight=1.5, fillOpacity=0.85, layerId=~namedLocation,
+        label=~lapply(sprintf("<div style='font-family:Rubik,sans-serif'><b>%s</b><br>%s · %s sampler · %d samples · %s /m²</div>",
           namedLocation, modal_habitat %||% "habitat n/a", modal_sampler %||% "sampler n/a", n_samples,
-          ifelse(is.na(density_m2), "—", as.character(round(density_m2)))), htmltools::HTML))
+          ifelse(is.na(density_m2), "—", as.character(round(density_m2)))), htmltools::HTML),
+        popup=site_reach_popup(pts, rv$meta, rv$site)) %>%
+      leaflet::addControl(position="topright", html=htmltools::HTML(sprintf(
+        "<div style='font-family:Rubik,sans-serif;background:#fff;padding:6px 9px;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.15);max-width:230px'><b>%s</b><br><span style='color:#5d7c84;font-size:12px'>marker size = density (within-site index) · tap for details</span></div>",
+        rv$label %||% rv$site %||% "Sampled reach")))
+    # fit the view to the station(s): a single fixed reach (the usual NEON case)
+    # gets a reach-scale zoom so it isn't a lone dot at world view; multiple named
+    # stations get bounds over them all.
+    if (nrow(pts) == 1) m <- m %>% leaflet::setView(pts$lng[1], pts$lat[1], zoom = 15)
+    else m <- m %>% leaflet::fitBounds(min(pts$lng), min(pts$lat), max(pts$lng), max(pts$lat), options = list(padding = c(40, 40)))
+    m
   })
   observeEvent(input$siteMap_marker_click, { id <- input$siteMap_marker_click$id; if (!is.null(id)) rv$reach <- id })
+  # the click->detail payoff: a single-reach site shows its one station's detail
+  # immediately; a multi-station site prompts a tap, then shows the tapped one.
   output$reachPanel <- renderUI({
     if (is.null(rv$samples)) return(NULL)
-    pts <- sample_points(rv$samples)
-    div(class="grid-empty", bs_icon("info-circle"),
-      span(sprintf(" NEON samples a fixed reach here (%s station%s). Markers are sized by density; the within-site analysis lives in the other tabs.",
-        if (is.null(pts)) 0 else nrow(pts), if (!is.null(pts) && nrow(pts)==1) "" else "s")))
+    pts <- sample_points(rv$samples); req(pts); n <- nrow(pts)
+    sel <- if (!is.null(rv$reach) && rv$reach %in% pts$namedLocation) rv$reach else if (n == 1) pts$namedLocation[1] else NULL
+    if (is.null(sel))
+      return(div(class="grid-empty", bs_icon("hand-index-thumb"),
+        span(sprintf(" This site has %d sampled stations. Tap a marker for its habitat, sampler, and density.", n))))
+    r <- pts[pts$namedLocation == sel, ][1, ]
+    div(class="grid-empty", bs_icon("geo-alt-fill"),
+      span(HTML(sprintf(" <b>%s</b> — %s · %s sampler · <b>%s</b> samples · density <b>%s</b>/m²%s.",
+        r$namedLocation, r$modal_habitat %||% "habitat n/a", r$modal_sampler %||% "sampler n/a",
+        as.integer(r$n_samples), ifelse(is.na(r$density_m2), "—", as.character(round(r$density_m2))),
+        if (n == 1) " · the one fixed reach NEON samples here" else ""))))
   })
 
   # ---- Splash: national site picker (the contract) ------------------------
@@ -636,14 +673,21 @@ server <- function(input, output, session) {
     d$eff <- num(d$n_bouts); d$eff[is.na(d$eff)] <- min(d$eff, na.rm=TRUE)
     rr <- range(d$eff, na.rm=TRUE); d$rad <- 6 + 12*(d$eff - rr[1])/max(1, diff(rr))
     pops <- vapply(seq_len(nrow(d)), function(i){ si <- SITE_INDEX[SITE_INDEX$site == d$site[i], ]; site_popup_html(d[i,], si) }, character(1))
-    leaflet::leaflet(d) %>% leaflet::addProviderTiles("CartoDB.Positron") %>% leaflet::setView(-96, 41, 3) %>%
+    leaflet::leaflet(d) %>% leaflet::addProviderTiles("CartoDB.Positron") %>%
+      leaflet::fitBounds(min(d$lng, na.rm=TRUE), min(d$lat, na.rm=TRUE), max(d$lng, na.rm=TRUE), max(d$lat, na.rm=TRUE)) %>%  # frame all 34 incl. AK + PR (was a fixed CONUS setView that clipped them)
       leaflet::addCircleMarkers(lng=~lng, lat=~lat, radius=~rad, fillColor=~type_col(type), color="#fff", weight=1, fillOpacity=0.85,
         label=~lapply(sprintf("<b>%s</b> · %s<br>%s · %s EPT taxa", site, name, TYPE_LAB[type] %||% type, ept_richness), htmltools::HTML),
         popup=pops, popupOptions=leaflet::popupOptions(maxWidth=300, minWidth=230, autoPan=TRUE, closeOnClick=FALSE)) %>%
       leaflet::addLegend("bottomright", colors=unname(TYPE_COL), labels=unname(TYPE_LAB), title="Water type", opacity=0.9)
   })
 
-  # ---- Site report (top-bar "report" download) ----------------------------
+  # ---- Site report (top-bar downloads) ------------------------------------
+  # PDF: a one-page printable/shareable site card (base-graphics, no pandoc dep).
+  output$reportPdf <- downloadHandler(
+    filename = function() sprintf("NEON-Inverts_site-report_%s_%s.pdf", rv$site %||% "site", format(Sys.Date(),"%Y%m%d")),
+    content = function(file) inv_report_pdf(file, rv$meta, rv$site, rv$label),
+    contentType = "application/pdf")
+  # CSV: the machine-readable one-row-per-metric report (+ codebook companion).
   output$reportCsv <- downloadHandler(
     filename = function() sprintf("NEON-Inverts_site-report_%s_%s.csv", rv$site %||% "site", format(Sys.Date(),"%Y%m%d")),
     content = function(file){
@@ -675,7 +719,7 @@ server <- function(input, output, session) {
   # ---- About + help -------------------------------------------------------
   output$aboutPanel <- renderUI({
     div(class="about-wrap",
-      div(class="about-card", h4("\U0001FAB2 What this is"),
+      div(class="about-card", h4("\U0001F990 What this is"),
         p("An (unofficial) explorer for NEON's ", tags$b("Macroinvertebrate collection"), " (", tags$code("DP1.20120.001"), "). At each aquatic site NEON scoops the stream or lake bottom with a fixed-area sampler, then sorts and identifies the small animals living there, the insect larvae, worms, snails, and crustaceans that fish eat and that breathe the water directly.")),
       div(class="about-card", h4(bs_icon("droplet-half"), " Density is an index, not a count"),
         p("Each sample covers a known area of bottom, so a count becomes a ", tags$b("density"), " (individuals per square metre). Big samples are subsampled and scaled up, so the number is an ", tags$b("estimate"), ". We call it a ", tags$b("within-site standardized density index"), ": good for comparing bouts at one site (within a habitat and sampler type), never an absolute population.")),

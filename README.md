@@ -43,7 +43,9 @@ honesty layers.
 - A **clickable + downloadable QC inspector** (the 8 site-level checks ranked
   high / warn / info, each opening the offending sample rows + a per-flag CSV).
 - Downloads everywhere: per-bout metrics CSV, taxa board CSV, cross-site table
-  CSV, a column **codebook**, and a one-row-per-metric site **report**.
+  CSV, a column **codebook**, and a site **report** — a printable one-page
+  **PDF** (branded, base-graphics, no pandoc/LaTeX dependency) plus the
+  machine-readable one-row-per-metric **CSV**.
 
 ## Data pipeline
 

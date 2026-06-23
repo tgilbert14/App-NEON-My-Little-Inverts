@@ -635,9 +635,9 @@ table.dataTable td, table.dataTable th { border-color: #eef1ec !important; color
   border-left: 1px solid var(--line); padding-left: 10px; cursor: pointer; }
 .hero-report:hover { color: var(--pine); text-decoration: underline; }
 
-/* The site report card is now a server-side PDF (downloadHandler output$reportPdf,
-   built in R/report_pdf.R), so the old hidden-HTML .report-card / .rc-* styles and
-   the @media print machinery have been removed. */
+/* The site report is a server-side CSV (downloadHandler output$reportCsv in
+   server.R, one row per metric + codebook), so the old hidden-HTML .report-card /
+   .rc-* styles and the @media print machinery have been removed. */
 
 .empty-state { text-align: center; padding: 50px 20px; color: var(--muted); }
 .empty-icon { font-size: 46px; }
@@ -1036,10 +1036,8 @@ svg.smt-pin-lines {
   border-radius: 9px; font-size: 13px; line-height: 1.4; border-left: 4px solid;
 }
 .qc-flag .qc-flag-ic { flex: 0 0 auto; margin-top: 1px; }
-.qc-flag.high { background: #fdecea; border-color: var(--terra); color: #7a1d12; }
-.qc-flag.warn { background: #fff6e0; border-color: var(--gold); color: #6b5300; }
-.qc-flag.info { background: #eef3fb; border-color: var(--sky); color: #243a52; }
-.qc-flag.clean { background: #e8f5ec; border-color: var(--green); color: #1a5e2e; }
+/* live flag colors use the .qc-flag-<level> convention in inverts.css; the old
+   single-class .qc-flag.high/.warn/.info/.clean rules were inert and removed. */
 .qc-section-h { font-size: 13px; font-weight: 700; color: var(--ink); margin: 14px 0 6px; }
 .qc-cap-note { color: var(--muted); font-size: 12px; margin: 4px 0 8px; }
 .qc-cap-scroll { max-height: 360px; overflow: auto; border: 1px solid var(--line); border-radius: 8px; }
@@ -1054,7 +1052,3 @@ svg.smt-pin-lines {
 
 /* dark theme: deepen the card surfaces (flag chips stay vivid, they're meant to pop) */
 [data-bs-theme="dark"] .qc-card { background: linear-gradient(162deg, #1c2941 0%, #16213a 100%); }
-[data-bs-theme="dark"] .qc-flag.high { background: #3a1c19; color: #f3b6ad; }
-[data-bs-theme="dark"] .qc-flag.warn { background: #352c12; color: #ecd28a; }
-[data-bs-theme="dark"] .qc-flag.info { background: #16263c; color: #a9c6e6; }
-[data-bs-theme="dark"] .qc-flag.clean { background: #163224; color: #9fd9b3; }

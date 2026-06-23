@@ -483,6 +483,8 @@ body {
 .sizelab-toolbar { display: flex; flex-wrap: wrap; gap: 10px; margin: 2px 0 10px; }
 .sizelab-hint { font-size: 11.5px; color: var(--muted); display: inline-flex; align-items: center; gap: 5px; }
 .sizelab-controls { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-end; margin: 4px 0 8px; }
+/* let the (now width:100%) cross-site selects fill on phones and sit side-by-side on desktop */
+.sizelab-controls .shiny-input-container { flex: 1 1 220px; min-width: 200px; }
 .tab-head { margin: 2px 0 12px; }
 .tab-head-text h4 { font-weight: 800; color: var(--teal); margin-bottom: 4px; }
 .tab-head-text p { color: var(--muted); font-size: 13.5px; margin-bottom: 0; }

@@ -124,6 +124,44 @@ sample_points <- function(samples) {
   agg
 }
 
+# rich within-site map popup: site context (water type, domain, years, richness,
+# EPT, elevation when present) from meta + neon_sites, plus THIS station's
+# habitat / sampler / samples / density, plus a NEON portal deep link. Uses only
+# bundled data (no live calls). One HTML string per row of pts. (Atlas)
+site_reach_popup <- function(pts, meta, site_code) {
+  if (is.null(pts) || !nrow(pts)) return(character(0))
+  nm     <- neon_sites[neon_sites$site == site_code, ]
+  sname  <- if (nrow(nm)) nm$name[1]   else site_code
+  state  <- if (nrow(nm)) nm$state[1]  else ""
+  domain <- if (nrow(nm)) nm$domain[1] else ""
+  typ    <- TYPE_LAB[meta$aquaticSiteType] %||% meta$aquaticSiteType %||% "site"
+  yrs    <- year_label(meta) %||% "—"
+  elev   <- suppressWarnings(as.numeric(meta$elevation %||% NA))
+  elev_s <- if (is.finite(elev)) sprintf(" · %s m elev", format(round(elev), big.mark = ",")) else ""
+  url    <- sprintf("https://www.neonscience.org/field-sites/%s", tolower(site_code))
+  rich   <- meta$richness %||% NA; ept <- meta$pct_ept_ind %||% NA; nb <- meta$n_bouts %||% NA
+  vapply(seq_len(nrow(pts)), function(i) sprintf(
+    paste0(
+      "<div style='font-family:Rubik,sans-serif;min-width:236px'>",
+      "<b>%s</b> · %s, %s<br>",
+      "<span style='color:#5d7c84'>%s · NEON %s%s</span><br>",
+      "<span style='color:#5d7c84;font-size:11px'>Reach: %s</span><br>",
+      "<b style='color:#0a6f7a'>%s</b> · %s sampler<br>",
+      "<b>%s</b> samples · <b>%s</b> bouts · %s<br>",
+      "density <b>%s</b>/m² · richness <b>%s</b> · EPT <b>%s%%</b>",
+      "<div style='margin-top:7px'><a href='%s' target='_blank' rel='noopener' ",
+      "class='btn btn-sm btn-outline-secondary'>View on NEON portal →</a></div></div>"),
+    sname, site_code, state,
+    typ, domain, elev_s,
+    pts$namedLocation[i] %||% "—",
+    pts$modal_habitat[i] %||% "habitat n/a", pts$modal_sampler[i] %||% "sampler n/a",
+    as.integer(pts$n_samples[i]), if (is.na(nb)) "—" else as.integer(nb), yrs,
+    ifelse(is.na(pts$density_m2[i]), "—", as.character(round(pts$density_m2[i]))),
+    if (is.na(rich)) "—" else as.character(rich),
+    if (is.na(ept)) "—" else sprintf("%.0f", ept), url),
+    character(1))
+}
+
 # ---------------------------------------------------------------------------
 # inv_qc(): the suite-standard data-quality flag system, built from the 8
 # precomputed per-site counts (meta$qc) PLUS the exact offending qc_samples rows
