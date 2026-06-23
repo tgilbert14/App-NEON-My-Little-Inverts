@@ -124,7 +124,7 @@ ui <- bslib::page_fillable(
           uiOutput("pulseInsight"),
           div(class = "smt-pinnable", id = "pulsePin", spin(plotlyOutput("pulsePlot", height = "440px")))),
         div(class = "confound-note", bs_icon("info-circle-fill"),
-          tags$span(HTML("Lakes are naturally EPT-poor (low EPT here is normal, <b>not</b> impairment). Across-site differences reflect habitat and sampling method as much as biology."))),
+          tags$span(HTML("If this is a lake, it is naturally EPT-poor — low EPT here is normal, <b>not</b> impairment."))),
         layout_columns(col_widths = breakpoints(sm = 12, lg = c(7, 5)),   # stack on phones + tablets, side-by-side only on wide screens
           card(full_screen = TRUE,
             card_head("graph-up", "Density over time",

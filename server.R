@@ -413,11 +413,23 @@ server <- function(input, output, session) {
           format(bs$collectDate[i], "%b %Y"), bs$habitatType[i], bs$ept[i], bs$dens[i], bs$samplerType[i], bs$n_samples[i],
           if (bs$flagged[i]) " · flagged" else ""))
     }
+    # legend KEY proxies (one NA point each, nothing plots) so a screenshot
+    # self-decodes the double encoding: marker SHAPE = habitat, COLOUR = sampler.
+    keymut <- "#9aa6aa"; hi <- 0L
+    for (h in habs) { hi <- hi + 1L
+      p <- p %>% add_trace(x=as.Date(NA), y=NA, type="scatter", mode="markers", name=h, legendgroup="hab",
+        legendgrouptitle=list(text="Habitat (shape)"), hoverinfo="skip", showlegend=TRUE,
+        marker=list(symbol=symset[(hi - 1) %% length(symset) + 1], color=keymut, size=11, line=list(color="#fff", width=1))) }
+    si <- 0L
+    for (s in samps) { si <- si + 1L
+      p <- p %>% add_trace(x=as.Date(NA), y=NA, type="scatter", mode="markers", name=s, legendgroup="samp",
+        legendgrouptitle=list(text="Sampler (colour)"), hoverinfo="skip", showlegend=TRUE,
+        marker=list(symbol="circle", color=palset[(si - 1) %% length(palset) + 1], size=11, line=list(color="#fff", width=1))) }
     p %>% plotly_theme() %>% plotly::layout(
       xaxis=list(title="Collection bout"), yaxis=list(title="% EPT (individuals)", rangemode="tozero", ticksuffix="%"),
       yaxis2=list(title="density (/m²)", overlaying="y", side="right", rangemode="tozero", showgrid=FALSE),
-      margin=list(l=56, r=70, t=44, b=44), legend=list(y=-0.18),   # r bumped so the right-axis "density (/m²)" title doesn't clip on narrow widths
-      annotations=list(list(text=sprintf("at <b>%s</b> · marker = habitat · colour = sampler · greyed = flagged bout", rv$site %||% "this site"), x=0, y=1.1, xref="paper", yref="paper", showarrow=FALSE, xanchor="left", font=list(color=muted, size=11))))
+      margin=list(l=56, r=70, t=44, b=78), legend=list(y=-0.26, font=list(size=10.5)),
+      annotations=list(list(text=sprintf("at <b>%s</b> · greyed = flagged bout · habitat + sampler key below", rv$site %||% "this site"), x=0, y=1.1, xref="paper", yref="paper", showarrow=FALSE, xanchor="left", font=list(color=muted, size=11))))
   })
   output$pulseInsight <- renderUI({
     bs <- bout_series(rv$bouts); req(bs)
@@ -629,16 +641,25 @@ server <- function(input, output, session) {
 
   # ---- Taxon Profile (downloadable card + QC flags) -----------------------
   output$taxonDensityPlot <- renderPlotly({
-    sci <- rv$sp; req(sci); req(rv$bundle)
-    # per-bout density of this taxon from its sample-level density share isn't
-    # precomputed; show its presence/density across the site samples via the
-    # taxon's mean. Fall back to a clean note if no per-bout breakdown exists.
-    r <- rv$taxa[rv$taxa$scientificName == sci, ]
-    df <- data.frame(metric = c("mean density (/m²)", "ubiquity (% samples)", "total individuals (est.)"),
-                     value = c(r$mean_density[1], r$ubiquity[1], r$total_est[1]))
-    plot_ly(df, x=~metric, y=~value, type="bar", marker=list(color=ept_col(r$class[1])),
-            hovertemplate="%{x}<br>%{y}<extra></extra>") %>%
-      plotly_theme(legend=FALSE) %>% plotly::layout(xaxis=list(title=""), yaxis=list(title="", type="log"), margin=list(l=46,r=10,t=10,b=40))
+    sci <- rv$sp; req(sci); req(rv$taxa)
+    # rank-in-context: this taxon's mean density against the site's densest taxa,
+    # ALL in the SAME unit (individuals / m²), so the comparison is honest — the
+    # old version stacked density / ubiquity / total individuals on one log axis,
+    # three different units that read as comparable but aren't. (Vera)
+    tb <- rv$taxa; tb$dens <- num(tb$mean_density); tb <- tb[is.finite(tb$dens) & tb$dens > 0, , drop=FALSE]
+    req(nrow(tb))
+    topn <- head(tb[order(-tb$dens), , drop=FALSE], 8)
+    if (!(sci %in% topn$scientificName)) topn <- rbind(topn, tb[tb$scientificName == sci, , drop=FALSE])
+    topn <- topn[order(topn$dens), , drop=FALSE]
+    topn$lab <- factor(topn$scientificName, levels = topn$scientificName)
+    topn$col <- ifelse(topn$scientificName == sci, "#0a6f7a", "rgba(148,167,173,0.5)")
+    plot_ly(topn, x=~dens, y=~lab, type="bar", orientation="h", marker=list(color=topn$col),
+            text=~ifelse(scientificName == sci, " · this taxon", ""),
+            hovertemplate="%{y}<br>%{x:.0f} /m²%{text}<extra></extra>") %>%
+      plotly_theme(legend=FALSE) %>% plotly::layout(
+        xaxis=list(title="mean density (individuals / m², log)", type="log"),
+        yaxis=list(title=""), margin=list(l=132, r=12, t=8, b=38),
+        annotations=list(list(text="this taxon (teal) vs the site's densest taxa — same unit", x=0, y=1.08, xref="paper", yref="paper", showarrow=FALSE, xanchor="left", font=list(color=if(is_dark())"#8db4ba" else "#5d7c84", size=10.5))))
   })
   qc <- reactive({ req(rv$bundle); inv_qc(rv$bundle) })
   qc_icon <- function(level) switch(level, high = "exclamation-octagon-fill", warn = "exclamation-triangle-fill", info = "info-circle-fill", "check-circle-fill")
@@ -674,7 +695,7 @@ server <- function(input, output, session) {
         tile(r$n_samples_present, "samples present"), tile(r$family %||% "—", "family"),
         tile(if (r$class=="EPT") "yes" else "no", "EPT"), tile(round(r$total_est), "individuals")),
       div(class="qc-section-h", bs_icon("bar-chart"), " This taxon at a glance"),
-      plotlyOutput("taxonDensityPlot", height="160px"),
+      plotlyOutput("taxonDensityPlot", height="220px"),
       qc_block,
       p(class="qc-cap-note", style="margin-top:8px", bs_icon("info-circle"),
         " Density is a within-site standardized index (individuals / m²), not a population. Counts are subsample estimates scaled to the whole sample. QC flags are site-level (the bundle does not carry per-taxon collection records)."))

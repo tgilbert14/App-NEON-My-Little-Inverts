@@ -52,7 +52,9 @@ honesty layers.
 ```
 scripts/fetch_inv_all.R     # ONE-TIME / on-demand: pull DP1.20120.001 (all sites)
                             #   -> ../inverts-data-fetch/DP1.20120.001_all.rds
-                            #   run with R-4.3.1 (neonUtilities; R-4.5.2 crashes on loadByProduct)
+                            #   run with R-4.3.1 (neonUtilities; R-4.5.2 crashes on loadByProduct).
+                            #   (The NEONize playbook's canonical fetch version is R-4.1.1;
+                            #    R-4.3.1 is the locally-validated equivalent for this app.)
 scripts/build_inv_data.R    # the SINGLE BUILDER: raw stack -> data/sites/<SITE>.rds (34),
                             #   data/site_index.rds, data/cross_site.rds, data-sample/demo.rds.
                             #   All metrics (density, richness, EPT, Hill, Chao1, rarefaction,
