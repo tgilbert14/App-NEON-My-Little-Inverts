@@ -79,6 +79,17 @@ site_table <- if (length(BUNDLED)) {
 
 NO_DATA <- is.null(SITE_INDEX) || !length(BUNDLED) || !nrow(site_table)
 
+# ---------------------------------------------------------------------------
+# EPT_CELEBRATE_THRESHOLD — the honesty bar for the (leashed) celebration.
+# Confetti fires AT MOST ONCE per session, ONLY for a STREAM/RIVER site (lakes are
+# EPT-poor by nature, so celebrating low EPT there is dishonest + off-brand) whose
+# %EPT clears this bar. The value is data-derived: the 75th percentile of
+# pct_ept_ind across the 27 bundled stream/river sites is 34.8% (median 28.4);
+# rounding to 34 captures 8 of 27 ≈ the network top quartile. Re-derive any time:
+#   sr <- SITE_INDEX[SITE_INDEX$aquaticSiteType %in% c("stream","river"),]
+#   quantile(sr$pct_ept_ind, 0.75, na.rm = TRUE)   # -> 34.8
+EPT_CELEBRATE_THRESHOLD <- 34
+
 # state choices for the by-name select panel
 inv_state_choices <- function() {
   st <- sort(unique(site_table$state)); if (!length(st)) return(NULL)

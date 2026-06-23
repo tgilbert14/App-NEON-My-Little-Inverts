@@ -64,6 +64,7 @@ ui <- bslib::page_fillable(
       h1(class = "app-title", "NEON My Little Inverts", span(class = "title-tag", "unofficial")),
       p(class = "app-subtitle", "The little animals on the bottom of a stream, river, or lake — insect larvae, worms, snails, crustaceans — tell you a lot about the water above them. This app reads one NEON aquatic site at a time. Built on the Macroinvertebrate collection (DP1.20120.001).")),
     p(tags$b("Tap a site on the map"), " (sized by survey effort, coloured by water type) to explore it, or pick one by name in the panel below the map. ", tags$b("34 aquatic sites"), " from desert streams to arctic lakes."),
+    uiOutput("recentsStrip"),
     div(class = "picker-map-wrap", leafletOutput("nationalPicker", height = "440px")),
 
     # ---- relocated select panel (was the sidebar) ----------------------

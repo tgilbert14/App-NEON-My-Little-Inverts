@@ -40,10 +40,14 @@ function runCounters() {
   document.querySelectorAll(".count-up").forEach(animateCount);
 }
 const heroObserver = new MutationObserver(() => runCounters());
-document.addEventListener("DOMContentLoaded", function () {
-  heroObserver.observe(document.body, { childList: true, subtree: true });
-  runCounters();
-});
+// Attach immediately when possible (this file can execute AFTER DOMContentLoaded,
+// in which case a DOMContentLoaded listener would never fire). document.body is
+// available by the time a head-loaded deferred-dependency script runs.
+function invObserveCounters() {
+  if (document.body) { heroObserver.observe(document.body, { childList: true, subtree: true }); runCounters(); }
+  else document.addEventListener("DOMContentLoaded", invObserveCounters);
+}
+invObserveCounters();
 
 // ---- confetti on a standout (a top EPT site, etc.) -----------------------
 function rodentConfetti(big) {
@@ -82,6 +86,30 @@ document.addEventListener("DOMContentLoaded", function () {
       setTimeout(function () { g.classList.remove("wave"); }, 3300);
     }
   } catch (e) {}
+});
+
+// ---- restore-last-site + recents (ONE localStorage namespace) --------------
+// On (re)connect, hand the server the saved last-site code and the recents ring
+// so the one-shot startup resolver and the recents strip can read them. Same
+// localStorage round-trip the first-visit mascot uses above. Keys:
+//   invLastSite  : the single most-recent site code (the resume target)
+//   invRecents   : a comma-joined ring of the last few codes (newest first)
+// Both are WRITTEN in one place — the 'invSaveSite' handler below — so there is
+// a single source of truth for the persisted state.
+function invSendStored() {
+  if (!window.Shiny || !Shiny.setInputValue) return;
+  try { Shiny.setInputValue("invLastSite", localStorage.getItem("invLastSite") || "", { priority: "event" }); }
+  catch (e) { Shiny.setInputValue("invLastSite", "", { priority: "event" }); }
+  try { Shiny.setInputValue("invRecents", localStorage.getItem("invRecents") || "", { priority: "event" }); }
+  catch (e) { Shiny.setInputValue("invRecents", "", { priority: "event" }); }
+}
+// Shiny dispatches shiny:connected as a JQUERY event (a native addEventListener
+// does NOT catch it). Bind through jQuery, and keep the handler trivial + fully
+// guarded: a throw inside a shiny:connected handler bound before shiny.js's own
+// can abort Shiny's connect wiring (the input channel never gets set up). The
+// try/catch keeps that from ever happening.
+if (window.jQuery) jQuery(document).on("shiny:connected", function () {
+  try { invSendStored(); } catch (e) {}
 });
 
 // ---- loading overlay (opaque, indeterminate) -----------------------------
@@ -132,16 +160,53 @@ document.addEventListener("keydown", function (e) {
 });
 
 // ---- Shiny custom message handlers ---------------------------------------
-document.addEventListener("DOMContentLoaded", function () {
-  if (window.Shiny) {
-    Shiny.addCustomMessageHandler("countUp", function () {
+// Register the Shiny custom-message handlers. IMPORTANT: do NOT gate this on
+// DOMContentLoaded — htmlwidget/bslib dependency scripts can push this file's
+// execution past the DOMContentLoaded event, in which case a
+// `addEventListener("DOMContentLoaded", …)` callback never fires and EVERY
+// handler below would silently fail to register (this is exactly the bug that
+// left invSaveSite/confetti dead). Instead register as soon as `Shiny` exists,
+// polling briefly until it does.
+// Shiny's addCustomMessageHandler THROWS if a name is already registered, which
+// would abort the whole batch (leaving later handlers — invSaveSite, kickMaps —
+// unregistered). Guard each one so a duplicate is a no-op, and so the registration
+// is safe to run more than once across init events.
+function invAddH(name, fn) {
+  if (!window.Shiny || !Shiny.addCustomMessageHandler) return;
+  try { Shiny.addCustomMessageHandler(name, fn); } catch (e) { /* already registered */ }
+}
+function invRegisterHandlers() {
+  if (!window.Shiny || !Shiny.addCustomMessageHandler) return false;
+  window.__invHandlers = true;     // marker (not a guard — invAddH is per-handler idempotent)
+  {
+    invAddH("countUp", function () {
       setTimeout(runCounters, 60);
     });
-    Shiny.addCustomMessageHandler("confetti", function (msg) {
+    invAddH("confetti", function (msg) {
       rodentConfetti(msg && msg.big);
     });
-    Shiny.addCustomMessageHandler("loadDone", function () { smtLoadDone(); });
-    Shiny.addCustomMessageHandler("smtLoadStart", function (msg) {
+    // Persist the loaded site: writes BOTH localStorage keys (last-site + the
+    // recents ring) in this ONE place. The server fires it on every successful
+    // load; never on the splash. The ring keeps the last 4 distinct codes,
+    // newest first, the loaded code promoted to the front.
+    invAddH("invSaveSite", function (msg) {
+      try {
+        var code = msg && msg.site;
+        if (!code) return;
+        localStorage.setItem("invLastSite", code);
+        var raw = localStorage.getItem("invRecents") || "";
+        var ring = raw.split(",").map(function (s) { return s.trim(); })
+                      .filter(function (s) { return s.length; });
+        ring = ring.filter(function (s) { return s !== code; }); // de-dupe
+        ring.unshift(code);                                      // newest first
+        ring = ring.slice(0, 4);                                 // cap at 4
+        localStorage.setItem("invRecents", ring.join(","));
+        // hand the refreshed ring back so the splash strip re-renders live
+        Shiny.setInputValue("invRecents", ring.join(","), { priority: "event" });
+      } catch (e) {}
+    });
+    invAddH("loadDone", function () { smtLoadDone(); });
+    invAddH("smtLoadStart", function (msg) {
       smtLoadStart(msg && msg.label);
     });
     // A Leaflet map that initialised inside a hidden container (the within-site
@@ -149,7 +214,7 @@ document.addEventListener("DOMContentLoaded", function () {
     // until it recomputes its size. Dispatching 'resize' over several frames
     // makes every Leaflet map invalidateSize. The server kicks this after
     // re-showing the splash and on relevant tab shows.
-    Shiny.addCustomMessageHandler("kickMaps", function () {
+    invAddH("kickMaps", function () {
       var kick = function () {
         try { window.dispatchEvent(new Event("resize")); } catch (e) {}
         try {
@@ -164,4 +229,22 @@ document.addEventListener("DOMContentLoaded", function () {
       [80, 250, 500, 900].forEach(function (t) { setTimeout(kick, t); });
     });
   }
-});
+  return true;
+}
+// Register the custom-message handlers. Learned the hard way:
+//   1) DO NOT bind invRegisterHandlers to shiny:connected — a handler bound there
+//      (before shiny.js binds its own) that runs first can abort Shiny's connect
+//      wiring, stalling the whole input channel (no shiny:busy/idle ever fires).
+//   2) A pre-connect / top-level registration is DROPPED: Shiny (re)initialises
+//      its handler registry during connection, so anything added before the
+//      session settles never receives messages.
+//   3) Shiny's addCustomMessageHandler THROWS on a duplicate name, so re-running
+//      registration must be per-handler guarded (invAddH) or the batch aborts.
+// Robust recipe: register only AFTER init, on shiny:sessioninitialized and on the
+// first shiny:idle (registry settled by then; not in the connect-wiring chain).
+// invAddH makes each call idempotent, so running it on both events is safe and the
+// later run is what actually sticks onto the settled registry.
+if (window.jQuery) {
+  jQuery(document).on("shiny:sessioninitialized", invRegisterHandlers);
+  jQuery(document).one("shiny:idle", invRegisterHandlers);
+}

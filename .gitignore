@@ -11,8 +11,10 @@
 # bundle-only — it reads data/sites/*.rds, never the raw stack)
 ../inverts-data-fetch/
 
-# review-agent + boot-test scratch (these never ship)
+# review-agent + boot-test + QA scratch (these never ship; match at any depth)
 _*.R
+_*.png
+_*.pdf
 _adv_check*.R
 _verify_*.R
 _boot.R

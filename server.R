@@ -30,6 +30,11 @@ server <- function(input, output, session) {
   rv <- reactiveValues(bundle=NULL, meta=NULL, bouts=NULL, taxa=NULL, samples=NULL,
                        label=NULL, site=NULL, sp=NULL, pendingSite=NULL, reach=NULL)
 
+  # session-scoped delighter state (no racing observers; each fires at most once)
+  celebrated  <- reactiveVal(FALSE)   # the EPT confetti fires AT MOST ONCE per session
+  carryTab    <- reactiveVal(NULL)    # the tab to restore after a site change
+  recentCodes <- reactiveVal(character(0))  # the recents ring, newest first (from localStorage)
+
   # ---- selectors + the sidebar-sync bridge --------------------------------
   observe({ ch <- inv_state_choices(); updateSelectInput(session, "stateSel", choices = ch, selected = if ("AZ" %in% ch) "AZ" else NULL) })
   observeEvent(input$stateSel, {
@@ -66,7 +71,35 @@ server <- function(input, output, session) {
     tb <- rv$taxa
     ch <- setNames(tb$scientificName, sprintf("%s · %s", tb$scientificName, ifelse(tb$class=="EPT","EPT", tb$order %||% "other")))
     updateSelectizeInput(session, "spSel", choices = c("Pick a taxon…"="", ch), selected = "", server = TRUE)
-    nav_select("tabs", "overview"); session$sendCustomMessage("countUp", list()); session$sendCustomMessage("loadDone", list())
+    # CARRY STATE across a site change: keep the user on the tab they were on when
+    # the new site supports it (all sites share the same tab set, so it always
+    # does). carryTab() is set by the "change site" handler before teardown; the
+    # cold/deep-link/restore paths leave it NULL and we land on Overview.
+    land <- carryTab(); if (is.null(land) || !nzchar(land)) land <- "overview"
+    carryTab(NULL)
+    nav_select("tabs", land)
+    # DEEP-LINK + RESTORE persistence — fire ONLY here, on a successful load (never
+    # on a reactive tick). The address bar becomes a shareable ?site= link; the
+    # localStorage handler writes the resume target + the recents ring in one place.
+    updateQueryString(paste0("?site=", utils::URLencode(rv$site, reserved = TRUE)), mode = "replace")
+    session$sendCustomMessage("invSaveSite", list(site = rv$site))
+    # CELEBRATION — leashed + honesty-gated. Fire AT MOST ONCE per session, ONLY
+    # when the loaded site is a STREAM/RIVER (lakes are EPT-poor by nature, so
+    # celebrating low/zero EPT there is dishonest) AND its %EPT clears the network
+    # top-quartile bar. EPT_CELEBRATE_THRESHOLD is the 75th-percentile-of-
+    # stream/river pct_ept_ind from the bundled site_index (34.8% rounded to 34;
+    # this captures 8 of 27 stream/river sites ≈ the top quartile). Reduced-motion
+    # is already honored inside rodentConfetti().
+    if (!isTRUE(celebrated())) {
+      typ <- b$meta$aquaticSiteType %||% NA_character_
+      ept <- suppressWarnings(as.numeric(b$meta$pct_ept_ind %||% NA))
+      if (!is.na(typ) && typ %in% c("stream", "river") &&
+          is.finite(ept) && ept >= EPT_CELEBRATE_THRESHOLD) {
+        celebrated(TRUE)
+        session$sendCustomMessage("confetti", list(big = ept >= 40))  # extra burst for a standout
+      }
+    }
+    session$sendCustomMessage("countUp", list()); session$sendCustomMessage("loadDone", list())
     invisible(TRUE)
   }
 
@@ -108,11 +141,67 @@ server <- function(input, output, session) {
 
   # "Change site" -> back to the picker map
   observeEvent(input$changeSite, {
+    carryTab(input$tabs)   # remember the active tab so the next load lands back on it
     rv$bundle <- NULL; rv$meta <- NULL; rv$bouts <- NULL; rv$taxa <- NULL; rv$samples <- NULL
     rv$label <- NULL; rv$site <- NULL; rv$sp <- NULL; rv$reach <- NULL
     shinyjs::hide("mainTabsWrap"); shinyjs::hide("spPickerWrap"); shinyjs::show("splash")
+    updateQueryString("?", mode = "replace")   # don't carry a stale deep link onto the splash
     session$sendCustomMessage("kickMaps", list())
   })
+
+  # ---- delighters: deep-link + restore startup resolver -------------------
+  # Fires ONCE on connect (input$invLastSite is set in the shiny:connected JS, by
+  # which point clientData$url_search is ready). STRICT PRECEDENCE in ONE if/else:
+  #   (A) URL ?site=CODE  -> route a valid code through load_site()
+  #   (B) else localStorage last-site -> route it through load_site()
+  #   (C) else stay on the splash
+  # Restore is NON-STICKY: "change site" still re-shows the picker, so the splash
+  # is always one tap away.
+  valid_site <- function(code) !is.null(code) && length(code) == 1 &&
+    nzchar(code) && code %in% site_table$site
+  observeEvent(input$invLastSite, once = TRUE, ignoreNULL = FALSE, {
+    q <- tryCatch(parseQueryString(session$clientData$url_search %||% ""),
+                  error = function(e) list())
+    target <- NULL
+    if (valid_site(q$site)) {
+      target <- q$site                          # (A) URL deep link wins
+    } else {
+      raw <- input$invLastSite                  # (B) else localStorage resume
+      if (valid_site(raw)) target <- raw
+    }
+    if (is.null(target)) return(invisible())    # (C) nothing valid -> splash stays
+    session$sendCustomMessage("smtLoadStart", list(label = paste0(target, " · loading…")))
+    load_site(target)
+  })
+
+  # ---- delighters: recents strip ------------------------------------------
+  # The recents ring arrives as a comma-joined code string from localStorage
+  # (read on connect, and re-pushed by the invSaveSite handler after each load).
+  # Keep only codes that are actually bundled; render zero-effort tap-chips.
+  observeEvent(input$invRecents, ignoreNULL = FALSE, {
+    raw <- input$invRecents %||% ""
+    codes <- trimws(unlist(strsplit(raw, ",", fixed = TRUE)))
+    codes <- codes[nzchar(codes) & codes %in% site_table$site]
+    recentCodes(unique(codes)[seq_len(min(4L, length(unique(codes))))])
+  })
+  output$recentsStrip <- renderUI({
+    codes <- recentCodes()
+    if (!length(codes)) return(NULL)
+    # zero-effort tap-chips. Each raises the overlay client-side then fires ONE
+    # shared input (recentPick) — the same single-input mechanism the map popup
+    # uses — so there is no per-code observer to stack as the ring changes.
+    div(class = "recents-strip",
+      tags$span(class = "recents-lab", bs_icon("clock-history"), " Recently viewed:"),
+      lapply(codes, function(code) {
+        row <- site_table[site_table$site == code, ]
+        nm  <- if (nrow(row)) gsub("'", "", row$name) else code
+        tags$a(href = "#", class = "recent-chip",
+          title = if (nrow(row)) row$name else code,
+          onclick = sprintf("smtLoadStart('%s · loading…');Shiny.setInputValue('recentPick','%s',{priority:'event'});return false;", nm, code),
+          code)
+      }))
+  })
+  observeEvent(input$recentPick, load_site(input$recentPick))   # routes through the SAME shared loader
 
   # ---- taxon selection ----------------------------------------------------
   pick_taxon <- function(sci, navigate=FALSE){ if (is.null(sci)||is.na(sci)||sci=="") return()

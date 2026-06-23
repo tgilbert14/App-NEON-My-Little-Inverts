@@ -476,6 +476,20 @@ body {
   .select-panel .sp-field { flex: 1 1 100%; min-width: 0; }
 }
 
+/* ---- recently-viewed chips (zero-effort tap-strip above the picker map) ---- */
+.recents-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  max-width: 1040px; margin: 4px auto 8px; padding: 0 2px; }
+.recents-strip .recents-lab { font-size: 12.5px; font-weight: 600; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; }
+.recents-strip .recents-lab .bi { color: var(--teal); }
+.recent-chip { display: inline-flex; align-items: center; font-weight: 700; font-size: 12.5px;
+  letter-spacing: .02em; color: var(--teal2); text-decoration: none;
+  background: var(--paper); border: 1px solid var(--line); border-radius: 999px; padding: 3px 11px;
+  transition: background .15s ease, color .15s ease, border-color .15s ease, transform .12s ease; cursor: pointer; }
+.recent-chip:hover, .recent-chip:focus-visible { background: var(--teal); color: #fff; border-color: var(--teal); transform: translateY(-1px); outline: none; }
+[data-bs-theme="dark"] .recent-chip { color: var(--aqua); }
+[data-bs-theme="dark"] .recent-chip:hover, [data-bs-theme="dark"] .recent-chip:focus-visible { color: #06212a; background: var(--aqua); border-color: var(--aqua); }
+@media (prefers-reduced-motion: reduce) { .recent-chip { transition: none; } .recent-chip:hover, .recent-chip:focus-visible { transform: none; } }
+
 /* ---- picker-map wrap + within-site table wrap (full-width DTOutput fix) ---- */
 .picker-map-wrap { border-radius: 14px; overflow: hidden; border: 1px solid var(--line); box-shadow: 0 6px 20px var(--shadow); margin: 6px auto 4px; max-width: 1040px; }
 .dt-wrap { width: 100%; }
