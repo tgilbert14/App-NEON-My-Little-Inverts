@@ -102,6 +102,17 @@ composition_long <- function(bouts) {
     share = c(ept, chiro, oligo, other), stringsAsFactors = FALSE)
 }
 
+# pin-card HTML for a single bout/point on the time-series charts (EPT Pulse,
+# density, richness, composition). Vectorized: pass parallel vectors of title /
+# tag / stats_html and get one card per point for a trace's customdata. The
+# hidden data-tag drives the pin dedupe + the clear-on-data-change signature.
+# (No "open profile" chip — a bout isn't a navigable entity, just a pinnable read.)
+inv_bout_card <- function(title, tag, stats_html) paste0(
+  "<span class='smt-pin-emoji'>\U0001F990</span> <b>", title, "</b>",
+  "<span class='smt-tag' data-tag='", tag, "' style='display:none'></span><br/>",
+  "<span class='smt-pin-stats'>", stats_html, "</span>",
+  "<br/><em class='smt-pin-hint'>Tap the point to pin this card</em>")
+
 # within-site sample-location map feed. NEON aquatic sites sample a single reach,
 # so lat/lng are usually one point; we summarise per namedLocation (the reach /
 # habitat unit) so multiple stations show separately where they exist.

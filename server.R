@@ -304,6 +304,10 @@ server <- function(input, output, session) {
     bs$scol <- palset[(match(bs$samplerType, samps) - 1) %% length(palset) + 1]
     bs$scol[bs$flagged] <- "rgba(148,167,173,0.45)"
     bs$ept <- num(bs$pct_ept_ind); bs$dens <- num(bs$density_m2)
+    bs$card <- inv_bout_card(format(bs$collectDate, "%b %Y"), format(bs$collectDate, "%Y-%m-%d"),
+      sprintf("EPT <b>%.0f%%</b> · density <b>%s</b>/m²<br/>%s · %s sampler · %d samples%s",
+        bs$ept, ifelse(is.na(bs$dens), "—", format(round(bs$dens), big.mark = ",")),
+        bs$habitatType, bs$samplerType, bs$n_samples, ifelse(bs$flagged, " · flagged", "")))
     p <- plot_ly()
     # density bars (secondary axis), faint
     p <- p %>% add_trace(x=~bs$collectDate, y=~bs$dens, type="bar", name="density (/m²)", yaxis="y2",
@@ -314,6 +318,7 @@ server <- function(input, output, session) {
       line=list(color=DDL$teal, width=2.5), hoverinfo="skip", showlegend=TRUE)
     for (i in seq_len(nrow(bs))) {
       p <- p %>% add_trace(x=bs$collectDate[i], y=bs$ept[i], type="scatter", mode="markers", showlegend=FALSE,
+        customdata=list(bs$card[i]),
         marker=list(symbol=bs$sym[i], color=bs$scol[i], size=12, line=list(color="#fff", width=1)),
         hovertemplate=sprintf("%s · %s<br>%%EPT %.1f%% · %.0f /m²<br>%s sampler · %d samples%s<extra></extra>",
           format(bs$collectDate[i], "%b %Y"), bs$habitatType[i], bs$ept[i], bs$dens[i], bs$samplerType[i], bs$n_samples[i],
@@ -351,8 +356,10 @@ server <- function(input, output, session) {
   output$densityPlot <- renderPlotly({
     bs <- bout_series(rv$bouts); req(bs); bs$dens <- num(bs$density_m2); bs <- bs[is.finite(bs$dens), , drop=FALSE]
     if (!nrow(bs)) return(note_plot("No density data (no benthic area)"))
+    bs$card <- inv_bout_card(format(bs$collectDate, "%b %Y"), format(bs$collectDate, "%Y-%m-%d"),
+      sprintf("density <b>%s</b>/m²", format(round(bs$dens), big.mark = ",")))
     plot_ly(bs, x=~collectDate, y=~dens, type="scatter", mode="lines+markers", line=list(color=DDL$teal, width=2.5),
-      marker=list(color=DDL$teal, size=7), hovertemplate="%{x|%b %Y}<br>%{y:.0f} /m²<extra></extra>") %>%
+      customdata=as.list(bs$card), marker=list(color=DDL$teal, size=7), hovertemplate="%{x|%b %Y}<br>%{y:.0f} /m²<extra></extra>") %>%
       plotly_theme(legend=FALSE) %>% plotly::layout(xaxis=list(title="Collection bout"), yaxis=list(title="Density (individuals / m²)", rangemode="tozero"))
   })
   output$densityInsight <- renderUI({
@@ -375,12 +382,15 @@ server <- function(input, output, session) {
     bs <- bout_series(rv$bouts); req(bs); bs$collectDate <- as.Date(bs$collectDate)
     rr <- num(bs$rarefied_richness); h1 <- num(bs$hill_q1)
     if (all(is.na(rr)) && all(is.na(h1))) return(note_plot("Standardized richness suppressed (insufficient count)"))
+    card <- inv_bout_card(format(bs$collectDate, "%b %Y"), format(bs$collectDate, "%Y-%m-%d"),
+      sprintf("rarefied richness <b>%s</b> (to 100)<br/>Hill q1 <b>%s</b> common taxa",
+        ifelse(is.na(rr), "—", round(rr)), ifelse(is.na(h1), "—", sprintf("%.1f", h1))))
     p <- plot_ly()
     p <- p %>% add_trace(x=bs$collectDate, y=rr, type="scatter", mode="lines+markers", name="rarefied richness (to 100)",
-      line=list(color=DDL$teal, width=2.5), marker=list(color=DDL$teal, size=7), connectgaps=FALSE,
+      customdata=as.list(card), line=list(color=DDL$teal, width=2.5), marker=list(color=DDL$teal, size=7), connectgaps=FALSE,
       hovertemplate="%{x|%b %Y}<br>%{y:.0f} taxa (rarefied)<extra></extra>")
     p <- p %>% add_trace(x=bs$collectDate, y=h1, type="scatter", mode="lines+markers", name="Hill q1 (common taxa)",
-      line=list(color=DDL$aqua, width=2, dash="dot"), marker=list(color=DDL$aqua, size=6), connectgaps=FALSE,
+      customdata=as.list(card), line=list(color=DDL$aqua, width=2, dash="dot"), marker=list(color=DDL$aqua, size=6), connectgaps=FALSE,
       hovertemplate="%{x|%b %Y}<br>%{y:.1f} effective common taxa<extra></extra>")
     p %>% plotly_theme() %>% plotly::layout(xaxis=list(title="Collection bout"), yaxis=list(title="Effective # taxa", rangemode="tozero"))
   })
@@ -406,6 +416,18 @@ server <- function(input, output, session) {
       p <- p %>% add_trace(x=sub$bx, y=sub$share, type="scatter", mode="lines", stackgroup="one",
         name=comp, line=list(width=0.5, color=comp_col(comp)), fillcolor=comp_col(comp),
         hovertemplate=sprintf("%s · %%{y:.0f}%% · %%{x}<extra></extra>", comp)) }
+    # clickable pin markers per bout (on the EPT-band top = the EPT share); the
+    # card carries the exact 4-way % breakdown so bouts can be pinned + compared.
+    bw <- tidyr::pivot_wider(cl[, c("collectDate","bx","component","share")],
+                             names_from = component, values_from = share)
+    bw <- bw[order(bw$collectDate), ]
+    getc <- function(nm) if (nm %in% names(bw)) num(bw[[nm]]) else rep(0, nrow(bw))
+    e <- getc("EPT"); ch <- getc("Chironomidae"); ol <- getc("Oligochaeta"); ot <- getc("other")
+    bw$card <- inv_bout_card(format(as.Date(bw$collectDate), "%b %Y"), format(as.Date(bw$collectDate), "%Y-%m-%d"),
+      sprintf("EPT <b>%.0f%%</b> · Chironomidae <b>%.0f%%</b><br/>Oligochaeta <b>%.0f%%</b> · other <b>%.0f%%</b>", e, ch, ol, ot))
+    p <- p %>% add_trace(x=bw$bx, y=e, type="scatter", mode="markers", name="bout", customdata=as.list(bw$card),
+      marker=list(color="#0a6f7a", size=7, line=list(color="#fff", width=1)), showlegend=FALSE,
+      hovertemplate="%{x}<br>EPT %{y:.0f}% — tap to pin all four shares<extra></extra>")
     p %>% plotly_theme() %>% plotly::layout(
       xaxis=list(title="Collection bout (in order)", type="category"),
       yaxis=list(title="% of individuals", range=c(0,100), ticksuffix="%"))

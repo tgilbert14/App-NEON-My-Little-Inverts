@@ -33,16 +33,19 @@
   function anchorPx(gd, box, dx, dy) {
     var fl = gd && gd._fullLayout;
     if (!fl || !fl.xaxis || !fl.yaxis) return null;
-    // c2p() applies the axis's c2l() FIRST (log10 for a log axis, identity for
-    // linear/date/category), so it maps a RAW data value to pixels correctly on
-    // every axis type. l2p() expects an already-linearized coordinate, so on the
-    // Taxa Board's log density axis it placed the anchor as if the raw density
-    // were a log10 value — the off-point pin. Keep l2p only as a last-resort
-    // fallback for any build that doesn't expose c2p.
+    // d2p() (data -> pixel) runs d2c then c2l then l2p, so it maps a RAW clicked
+    // value to pixels correctly on EVERY axis type: linear, log (log10), date
+    // (parses the date string), and category (label -> index). That lets one pin
+    // system anchor across the numeric Taxa Board, the log density axis, the
+    // date time-series (EPT pulse / density / richness) AND the categorical bout
+    // axis (composition). c2p/l2p are last-resort fallbacks. (Earlier l2p() on a
+    // raw value was the off-point bug on the log axis.)
     var px = function (axis, v) {
-      return (typeof axis.c2p === "function") ? axis.c2p(v) : axis.l2p(v);
+      if (typeof axis.d2p === "function") return axis.d2p(v);
+      if (typeof axis.c2p === "function") return axis.c2p(v);
+      return axis.l2p(v);
     };
-    if (typeof fl.xaxis.c2p !== "function" && typeof fl.xaxis.l2p !== "function") return null;
+    if (typeof fl.xaxis.d2p !== "function" && typeof fl.xaxis.c2p !== "function" && typeof fl.xaxis.l2p !== "function") return null;
     var gdR = gd.getBoundingClientRect(), boxR = box.getBoundingClientRect();
     var ax = px(fl.xaxis, dx) + fl.xaxis._offset + (gdR.left - boxR.left);
     var ay = px(fl.yaxis, dy) + fl.yaxis._offset + (gdR.top - boxR.top);
@@ -197,7 +200,11 @@
     // entities genuinely change (new site / new metric filter -> new tags).
     var seen = {};
     gd.data.forEach(function (t) {
-      if (t.customdata) t.customdata.forEach(function (h) {
+      if (!t.customdata) return;
+      // a single-point trace (e.g. each per-bout marker on the EPT pulse) can
+      // arrive as a scalar string, not an array — coerce so .forEach is safe.
+      var cd = Array.isArray(t.customdata) ? t.customdata : [t.customdata];
+      cd.forEach(function (h) {
         var m = String(h).match(/data-tag='([^']+)'/); if (m) seen[m[1]] = 1;
       });
     });
@@ -281,6 +288,8 @@
   }
   window.smtSaveScatter = function () { snap(document.getElementById("boardPin") || document.querySelector(".smt-pinnable"), "neon-inverts-taxa-board.png"); };
   window.smtSaveClimate = function () { snap(document.getElementById("climatePin"), "neon-inverts-cross-site-gradient.png"); };
+  // generic: any .smt-pinnable box by id (the bout time-series charts use this)
+  window.smtSaveBox = function (id, name) { var n = document.getElementById(id); if (n) snap(n, name); };
   window.smtSaveQcCard = function () {
     var node = document.getElementById("qcCardNode");
     if (!node) return;
