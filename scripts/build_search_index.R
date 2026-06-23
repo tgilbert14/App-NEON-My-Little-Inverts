@@ -68,7 +68,7 @@ sites <- site_index[, keep, drop = FALSE]
 rownames(sites) <- NULL
 
 search_index <- list(taxa = taxa, sites = sites, built = as.character(Sys.Date()))
-saveRDS(search_index, "data/search_index.rds", compress = "xz")
+saveRDS(search_index, "data/search_index.rds", compress = "gzip")
 
 sz <- file.info("data/search_index.rds")$size
 cat(sprintf("Built search_index.rds: %d taxon-occurrence rows across %d sites, %d distinct taxa. %.1f KB.\n",

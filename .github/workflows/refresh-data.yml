@@ -102,9 +102,23 @@ jobs:
       # then the deploy manifest (regenerate or Connect serves a stale package set).
       # build_cross_site re-derives data/site_index.rds + data/cross_site.rds from
       # data/sites/*.rds; it is a clean no-op-safe rebuild on the skip path.
-      - name: Rebuild cross-site index + manifest
+      - name: Rebuild cross-site index
         run: |
           Rscript scripts/build_cross_site.R
+
+      # Rebuild the precomputed "Search the network" index from the COMMITTED
+      # bundles (data/sites/*.rds + data/site_index.rds) so it never goes stale.
+      # Pure precompute, no fetch — runs on the skip path too. Must come BEFORE
+      # write_manifest so the manifest checksums the fresh gzip index.
+      - name: Rebuild the search index
+        run: |
+          Rscript scripts/build_search_index.R
+
+      # Regenerate the deploy manifest LAST (or Connect serves a stale package
+      # set). write_manifest.R is check-only: it runs rsconnect::writeManifest()
+      # then stops on a neonUtilities/arrow leak.
+      - name: Rebuild manifest
+        run: |
           Rscript scripts/write_manifest.R
 
       # Push the refreshed data straight to main -> Connect Cloud re-publishes.
@@ -115,7 +129,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git fetch origin main
           git rebase --autostash origin/main || true
-          git add data/sites data/site_index.rds data/cross_site.rds data-sample manifest.json
+          git add data/sites data/site_index.rds data/cross_site.rds data/search_index.rds data-sample manifest.json
           if git diff --cached --quiet; then
             echo "No data changes — nothing to push."
           else
