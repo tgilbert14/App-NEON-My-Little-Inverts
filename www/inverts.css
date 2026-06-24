@@ -325,7 +325,11 @@ body {
 .brand-mark, .app-emoji { display: inline-block; animation: msFloat 6s ease-in-out infinite; }
 
 /* ---- DARK stat value-boxes on the LIGHT page (the cascade look) -------- */
-.hero-band { margin: 4px 0 14px; }
+/* flex:0 0 auto is defensive: never let the hero band be the page-fill flex
+   child that shrinks. It can't crush today (overflow:visible floors its min-size
+   at content) but would if the cascade's overflow:hidden command-band style is
+   ever ported here. See NEON-Driver-Cascade/www/cascade.css for the full story. */
+.hero-band { flex: 0 0 auto; margin: 4px 0 14px; }
 .hero-title { font-weight: 700; color: var(--teal); font-size: 17px; display: flex; gap: 8px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
 .hero-title .hero-change, .hero-title .hero-report { margin-left: 14px; display: inline-flex; align-items: center; gap: 4px; }
 .hero-title .hero-report { margin-left: 10px; }
