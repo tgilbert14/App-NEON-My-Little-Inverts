@@ -868,6 +868,11 @@ server <- function(input, output, session) {
           tags$a(class=paste0("sib-card", if (identical(s$dpid, NEON_DPID)) " is-self" else ""), href=s$url, target="_blank",
             div(class="sib-emoji", s$emoji),
             div(div(class="sib-name", s$name), div(class="sib-tag", s$tag))) }))),
+      div(class="about-card", h4(bs_icon("patch-check"), " Data attribution & license"),
+        p(class="caveat",
+          "Built with data from the National Ecological Observatory Network (NEON), a U.S. National Science Foundation program operated by Battelle. NEON data are provided under a Creative Commons Attribution 4.0 International (CC BY 4.0) license (",
+          tags$a(href="https://creativecommons.org/licenses/by/4.0/", target="_blank", "creativecommons.org/licenses/by/4.0"),
+          "). This app aggregates and derives summary metrics from the raw NEON data products; the underlying measurements are unaltered. It is an independent, unofficial tool and is not endorsed by NEON, Battelle, or the NSF.")),
       div(class="about-card", h4(bs_icon("envelope"), " Desert Data Labs"),
         p(bs_icon("envelope"), " ", tags$a(href="mailto:desertdatalabs@gmail.com","desertdatalabs@gmail.com"), " · ",
           tags$a(href="https://data.neonscience.org/data-products/DP1.20120.001", target="_blank", "NEON data product"))))

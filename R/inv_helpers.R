@@ -373,5 +373,10 @@ inv_codebook <- function() {
                          "differences reflect habitat and method as much as biology. ", INV_DISCLAIMER),
     stringsAsFactors = FALSE)
 
-  rbind(bout, taxa, cross, caveat)
+  lic <- data.frame(
+    column = "_source", units = "license",
+    description = "Source: NEON DP1.20120.001, CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/); aggregated and derived by this app.",
+    stringsAsFactors = FALSE)
+
+  rbind(lic, bout, taxa, cross, caveat)
 }
