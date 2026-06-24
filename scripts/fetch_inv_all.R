@@ -10,10 +10,15 @@ OUT_DIR <- normalizePath(file.path("..", "inverts-data-fetch"), mustWork = FALSE
 dir.create(OUT_DIR, showWarnings = FALSE, recursive = TRUE)
 OUT <- file.path(OUT_DIR, "DP1.20120.001_all.rds")
 
-tok <- tryCatch(
+# Token: the refresh CI passes it via the NEON_TOKEN env (GitHub Actions secret);
+# a LOCAL run falls back to the owner's .neon_token file. NEON REQUIRES a token for
+# downloads from 2026-06-30, so the env path is what keeps the CI refresh alive
+# (the local file path does not exist on the runner).
+tok <- Sys.getenv("NEON_TOKEN", "")
+if (!nzchar(tok)) tok <- tryCatch(
   readLines("C:/Users/tsgil/OneDrive/Documents/VGS - R/App-NEON-Small-Mammal-Tracker/.neon_token", warn = FALSE)[1],
   error = function(e) NA_character_)
-if (is.na(tok) || !nzchar(tok)) { cat("WARN: no NEON token found; proceeding anonymously (lower rate limit)\n"); tok <- NA_character_ }
+if (is.na(tok) || !nzchar(tok)) { cat("WARN: no NEON token (NEON_TOKEN env or .neon_token file); proceeding anonymously, which FAILS for downloads after 2026-06-30\n"); tok <- NA_character_ }
 
 cat("Fetching DP1.20120.001 (macroinvertebrate collection), all sites, all dates...\n")
 t0 <- Sys.time()
